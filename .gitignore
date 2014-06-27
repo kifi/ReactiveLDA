@@ -10,13 +10,6 @@
 
 .project
 
-activator
-
-*.jar
-
-*.sbt
-
-*.bat
 
 # sbt specific
 .cache/
