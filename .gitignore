@@ -1,6 +1,23 @@
 *.class
 *.log
 
+/target/*
+/project/*
+
+.cache
+
+.classpath
+
+.project
+
+activator
+
+*.jar
+
+*.sbt
+
+*.bat
+
 # sbt specific
 .cache/
 .history/
