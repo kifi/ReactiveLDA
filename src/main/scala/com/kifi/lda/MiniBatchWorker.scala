@@ -77,10 +77,6 @@ case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 object Sampler {
   private val rng = new Well19937c()
 
-  def gamma(shape: Double, scale: Double = 1.0): Double = {
-    1.0
-  }
-
   def dirichlet(alphas: Array[Float]): Array[Double] = {
     val dir = FastDirichletSampler(alphas, rng)
     dir.sample
@@ -95,7 +91,7 @@ object Sampler {
       if (s > x) return i
       i += 1
     }
-    i min (alphas.size - 1)	// in case numerical error
+    alphas.size - 1
   }
 
 }
@@ -371,25 +367,23 @@ object LDA {
       exit(1)
     }
 
+    val system = ActorSystem("LDASystem")
 
-	  val system = ActorSystem("LDASystem")
-	
-	  val config = TopicConfig(
-	    numTopics = map("topicSize").toInt,
-	    vocSize = map("vocSize").toInt,
-	    iterations = map("iters").toInt,
-	    discount = map("discount").toBoolean,
-	    miniBatchSize = map("miniBatchSize").toInt,
-	    saveModelPath = map("modelFile"))
-	
-	  val docIter = new DocIteratorImpl(map("trainFile"))
-	
-	  val readerActor = system.actorOf(Props(new MiniBatchLineReader(docIter)), "readerActor")
-	  val betaActor = system.actorOf(
-	    Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor"
-	  )
-	
-	  betaActor ! StartTraining
+    val config = TopicConfig(
+      numTopics = map("topicSize").toInt,
+      vocSize = map("vocSize").toInt,
+      iterations = map("iters").toInt,
+      discount = map("discount").toBoolean,
+      miniBatchSize = map("miniBatchSize").toInt,
+      saveModelPath = map("modelFile"))
+
+    val docIter = new DocIteratorImpl(map("trainFile"))
+
+    val readerActor = system.actorOf(Props(new MiniBatchLineReader(docIter)), "readerActor")
+    val betaActor = system.actorOf(
+      Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor")
+
+    betaActor ! StartTraining
   }
 
 }
