@@ -1,14 +1,26 @@
 package com.kifi.lda
 
-import scala.io.Source
 import java.io._
 import net.liftweb.json._
+import scala.collection.mutable
 import scala.math._
+import scala.io.Source
 
+// some utility functions to examine the model
 class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
   val id2word = word2id.map.map{ case (w, id) => (id, w)}
   val voc = beta.vocSize
   val T = beta.numTopics
+  val wordvecs: Map[String, Array[Float]] = {
+    val words = word2id.map.keySet
+    val wordvecs = words.map { w: String =>
+	  val wid = word2id.map(w)
+	  val v = (0 until T).map { t => beta.get(t, wid) };
+	  val s = v.sum;
+	  w -> v.map { _ / s }.toArray;
+    }
+    wordvecs.toMap
+  }
   
   def showTopics(topic: Int, topK: Int) = {
     val t = topic; 
@@ -18,18 +30,45 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
   }
   
   def showWordTopic(word: String, topK: Int) = {
-    word2id.map.get(word).map{ wid =>
-      val v = (0 until T).map{ t => beta.get(t, wid)}; 
-      val s = v.sum; 
-      val v_n = v.map{_/s}; 
-      v_n.zipWithIndex.sortBy(-1f*_._1).take(topK)
+    wordvecs.get(word).map{ v => 
+      v.zipWithIndex.sortBy(-1f*_._1).take(topK)
     }
   }
   
-  def showTopicWithIdfDiscount(topic: Int, topK: Int) = {
-    val prefetch = 1000
+  def showTopicWithIdfDiscount(topic: Int, topK: Int, prefetch: Int = 1000) = {
     showTopics(topic, prefetch).map{ case (w, x) => (w, x/(exp(idf.map(w))))}.sortBy(-1f*_._2).take(topK)
   }
+  
+  def getAllTopics(): String = {
+    (0 until T).map{ i => val t = showTopicWithIdfDiscount(i, 100).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
+  }
+  
+  // (num_words_labeled_as_topic, topic). This is helpful in identifying big 'trivial' topics
+  def topicSize(): Array[(Int, Int)] = {
+    val count = new Array[Int](T)
+    wordvecs.foreach{ case (_, v) => val idx = v.zipWithIndex.sortBy(-1f*_._1).head._2; count(idx) = count(idx) + 1}
+    count.zipWithIndex.sortBy(-1f * _._1)
+  } 
+  
+  def topicRelation() = {
+    val m = mutable.Map.empty[(Int, Int), Float]
+    wordvecs.keySet.foreach{ w => 
+      val Array((s1, idx1), (s2, idx2)) = showWordTopic(w, 5).get.take(2) 
+      val r = s2/s1
+      val k = if (idx1 < idx2) (idx1, idx2) else (idx2, idx1)
+      m(k) = m(k) + r 
+    }
+    m.toMap
+  }
+  
+  def classify(txt: String, topK: Int): Seq[(Float, Int)] = {
+    val tokens = txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty)
+    val topic = new Array[Float](T)
+    tokens.flatMap{ w => wordvecs.get(w)}.foreach{ arr => (0 until T).foreach{ i => topic(i) = topic(i) + arr(i)}}
+    val s = topic.sum
+    val topic_n = topic.map{ t => t/s}
+    topic_n.zipWithIndex.sortBy(-1f*_._1).take(topK)
+  } 
 }
 
 object ModelReader {
