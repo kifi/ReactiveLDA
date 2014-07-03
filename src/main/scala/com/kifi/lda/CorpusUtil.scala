@@ -14,7 +14,7 @@ case class WordCount(numDocs: Int, wordCounts: Map[String, Int])
 case class Idf(map: Map[String, Float])
 
 class CorpusUtil {
-  def process(infile: String, outCorpus: String, word2idFile: String, minIdf: Float = 3f, maxIdf: Float = 15f): Unit = {
+  def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float = 3f, maxIdf: Float = 15f): Unit = {
     val wc = WordCounts.count(infile)
     val idf = WordCounts.idf(wc)
     val word2id = WordCounts.getWord2Id(idf, minIdf, maxIdf)
@@ -25,6 +25,11 @@ class CorpusUtil {
     val word2idSave = new BufferedWriter(new FileWriter(new File(word2idFile)))
     word2idSave.write(jstr)
     word2idSave.close()
+    
+    val idfSave = new BufferedWriter(new FileWriter(new File(idfFile)))
+    val idfJstr = write(idf.map)
+    idfSave.write(idfJstr)
+    idfSave.close()
   }
 }
 
