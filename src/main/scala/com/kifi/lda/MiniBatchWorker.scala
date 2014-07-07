@@ -8,70 +8,7 @@ import scala.math._
 import scala.util.Random
 
 
-import java.io._
-
 case class Doc(index: Int, content: Array[Int])
-
-// beta: topic-word distribution. T x V matrix. Each row is a topic-word distribution.
-case class Beta(value: Array[Float], numTopics: Int, vocSize: Int){
-  def get(topic: Int, word: Int): Float = value(topic * vocSize + word)
-  def set(topic: Int, word: Int, x: Float): Unit = value(topic * vocSize + word) = x
-  def setRow(topic: Int, row: Array[Float]): Unit = {
-    (0 until vocSize).map{ i => set(topic, i, row(i))}
-  }
-}
-
-object Beta {
-  def toBytes(beta: Beta): Array[Byte] = {
-    val numBytes = 4 * 2 + 4 * beta.value.size
-    var i = 0
-    var N = beta.value.size
-
-    val bs = new ByteArrayOutputStream(numBytes)
-    val os = new DataOutputStream(bs)
-    os.writeInt(beta.numTopics)
-    os.writeInt(beta.vocSize)
-    beta.value.foreach{os.writeFloat(_)}
-    os.close()
-    val rv = bs.toByteArray()
-    bs.close()
-    rv
-  }
-
-  def toFile(beta: Beta, path: String) = {
-    val os = new FileOutputStream(path)
-    val bytes = toBytes(beta)
-    os.write(bytes)
-    os.close()
-  }
-
-  def fromFile(path: String) = {
-    val is = new DataInputStream(new FileInputStream(new File(path)))
-    val numTopics = is.readInt()
-    val vocSize = is.readInt()
-    val value = new Array[Float](numTopics * vocSize)
-    val N = value.size
-    var i = 0
-    while ( i < N){
-      value(i) = is.readFloat()
-      i += 1
-    }
-    Beta(value, numTopics, vocSize)
-  }
-}
-
-case class WordTopicCounts(value: Array[Int], numTopics: Int, vocSize: Int){
-  def get(topic: Int, word: Int): Int = value(topic * vocSize + word)
-  def incre(topic: Int, word: Int): Unit = { value(topic * vocSize + word) = value(topic * vocSize + word) + 1 }
-  def getRow(topicId: Int): Array[Int] = value.slice( topicId * vocSize, (topicId + 1) * vocSize)
-  def clearAll(){
-    var i = 0
-    while (i < value.size) {value(i) = 0; i += 1 }
-  }
-}
-
-// theta: doc-topic distribution
-case class Theta(value: Array[Float])
 case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 
 
@@ -110,7 +47,7 @@ class MiniBatchLineReader(docIter: DocIterator) extends Actor {
   }
 }
 
-case class TopicConfig(numTopics: Int, vocSize: Int, iterations: Int, discount: Boolean, miniBatchSize: Int, saveModelPath: String)
+case class TopicConfig(numTopics: Int, vocSize: Int, iterations: Int, discount: Boolean, miniBatchSize: Int, saveBetaPath: String, saveCountsPath: String)
 
 case class BatchProgressTracker(val totalIters: Int){
   private var batchCounter = 0
@@ -185,11 +122,12 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
     println(self.path.name + ": beta updated")
     println(s"batch counter = ${tracker.getBatchCounter}")
 
-    wordTopicCounts.clearAll()
   }
+  
   private def saveModel(): Unit = {
     println("saving model...")
-    Beta.toFile(beta, topicConfig.saveModelPath)
+    Beta.toFile(beta, topicConfig.saveBetaPath)
+    WordTopicCounts.toFile(wordTopicCounts, topicConfig.saveCountsPath)
   }
 
   private def handleSamplingResult(result: SamplingResult){
@@ -207,6 +145,7 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
           saveModel()
           context.system.shutdown()
         }  else {
+          wordTopicCounts.clearAll()
           batchReader ! NextMiniBatchRequest(miniBatchSize)
         }
       }
@@ -278,7 +217,7 @@ class DocSamplingActors extends Actor {
 object LDA {
 
   val usage = """
-    Usage: java -jar LDA.jar -nw nWorker -t topicSize -voc vocSize -iter iters -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -out modelFile
+    Usage: java -jar LDA.jar -nw nWorker -t topicSize -voc vocSize -iter iters -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
     """
 
   private def consume(map: Map[String, String], list: List[String]): Map[String, String] = {
@@ -290,7 +229,8 @@ object LDA {
       case "-iter" :: value :: tail => consume(map ++ Map("iters" -> value), tail)
       case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
       case "-in" :: value :: tail => consume(map ++ Map("trainFile" -> value), tail)
-      case "-out" :: value :: tail => consume(map ++ Map("modelFile" -> value), tail)
+      case "-betaFile" :: value :: tail => consume(map ++ Map("betaFile" -> value), tail)
+      case "-countsFile" :: value :: tail => consume(map ++ Map("countsFile" -> value), tail)
       case "-disc":: value :: tail => consume(map ++ Map("discount" -> value), tail)
       case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
       case option :: tail => println("unknown option " + option); exit(1)
@@ -314,7 +254,7 @@ object LDA {
     val map = consume(Map(), args.toList)
     println(map)
     
-    val requiredArgs = Set("nworker", "topicSize", "vocSize", "trainFile", "modelFile", "iters", "miniBatchSize", "discount")
+    val requiredArgs = Set("nworker", "topicSize", "vocSize", "trainFile", "betaFile", "countsFile", "iters", "miniBatchSize", "discount")
     
     if (!requiredArgs.subsetOf(map.keySet)) {
       println("not enough arguments")
@@ -329,7 +269,8 @@ object LDA {
       iterations = map("iters").toInt,
       discount = map("discount").toBoolean,
       miniBatchSize = map("miniBatchSize").toInt,
-      saveModelPath = map("modelFile"))
+      saveBetaPath = map("betaFile"),
+      saveCountsPath = map("countsFile"))
       
     val inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean
 

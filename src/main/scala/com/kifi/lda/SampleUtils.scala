@@ -54,14 +54,20 @@ case class FastDirichletSampler(alphas: Array[Float], rng: RandomGenerator){
       if (alpha < 0.01) alpha		// just return the mean
       else if (alpha > 2) {			// approximate by a Gaussian
         val gaussianGen = new NormalDistribution(rng, alpha.toDouble, sqrt(alpha).toDouble)
-        gaussianGen.sample() max 1e-3	// avoid negative
+        var s = gaussianGen.sample()
+        while (s.isNaN()) s = gaussianGen.sample()
+        
+        s max 1e-3 // avoid negative
       } else {
         val gammaGen = new GammaDistribution(rng, alpha, 1)
-        gammaGen.sample()
+        var s = gammaGen.sample()
+        while(s.isNaN()) s = gammaGen.sample()
+        s
       }
     }
     
     val s = ys.sum
+    
 	ys.map{ y => y/s}
   }
 }
