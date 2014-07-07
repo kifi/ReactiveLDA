@@ -74,28 +74,6 @@ case class WordTopicCounts(value: Array[Int], numTopics: Int, vocSize: Int){
 case class Theta(value: Array[Float])
 case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 
-trait DocIterator {
-  def hasNext: Boolean
-  def next: Array[Int]
-  def gotoHead(): Unit
-  def getPosition(): Int
-}
-
-class DocIteratorImpl(fileName: String) extends DocIterator {
-  private var lineIter = Source.fromFile(fileName).getLines
-  private var p = 0
-  def hasNext = lineIter.hasNext
-  def next = {
-    p += 1
-    lineIter.next.split(" ").map{_.toInt}
-  }
-  def gotoHead() = {
-    lineIter = Source.fromFile(fileName).getLines
-    p = 0
-  }
-  def getPosition(): Int = p
-}
-
 
 sealed trait LDAMessage
 case object StartTraining extends LDAMessage
@@ -152,9 +130,11 @@ case class BatchProgressTracker(val totalIters: Int){
   def miniBatchFinished = miniBatchCounter == currMiniBatchSize
 
   def increBatchCounter() = {
-    println(s"one whole batch finished!!! batchCounter = ${batchCounter}")
+    println(s"\none whole batch finished!!!")
     batchCounter += 1
   }
+  def getBatchCounter = batchCounter
+  
   def batchFinished = batchCounter == totalIters
 }
 
@@ -203,9 +183,8 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
     }
 
     println(self.path.name + ": beta updated")
+    println(s"batch counter = ${tracker.getBatchCounter}")
 
-    // clear wordTopicCounts
-    //println("clear word topic counts")
     wordTopicCounts.clearAll()
   }
   private def saveModel(): Unit = {
@@ -299,7 +278,7 @@ class DocSamplingActors extends Actor {
 object LDA {
 
   val usage = """
-    Usage: java -jar LDA.jar -nw nWorker -t topicSize -voc vocSize -iter iters -disc discountWordFreq -b miniBatchSize -in trainFile -out modelFile
+    Usage: java -jar LDA.jar -nw nWorker -t topicSize -voc vocSize -iter iters -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -out modelFile
     """
 
   private def consume(map: Map[String, String], list: List[String]): Map[String, String] = {
@@ -313,6 +292,7 @@ object LDA {
       case "-in" :: value :: tail => consume(map ++ Map("trainFile" -> value), tail)
       case "-out" :: value :: tail => consume(map ++ Map("modelFile" -> value), tail)
       case "-disc":: value :: tail => consume(map ++ Map("discount" -> value), tail)
+      case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
       case option :: tail => println("unknown option " + option); exit(1)
     }
   }
@@ -333,8 +313,10 @@ object LDA {
 
     val map = consume(Map(), args.toList)
     println(map)
-
-    if (map.keySet != Set("nworker", "topicSize", "vocSize", "trainFile", "modelFile", "iters", "miniBatchSize", "discount")) {
+    
+    val requiredArgs = Set("nworker", "topicSize", "vocSize", "trainFile", "modelFile", "iters", "miniBatchSize", "discount")
+    
+    if (!requiredArgs.subsetOf(map.keySet)) {
       println("not enough arguments")
       exit(1)
     }
@@ -348,8 +330,10 @@ object LDA {
       discount = map("discount").toBoolean,
       miniBatchSize = map("miniBatchSize").toInt,
       saveModelPath = map("modelFile"))
+      
+    val inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean
 
-    val docIter = new DocIteratorImpl(map("trainFile"))
+    val docIter = if (inMem) new InMemoryDocIterator(map("trainFile")) else new DocIteratorImpl(map("trainFile"))
 
     val readerActor = system.actorOf(Props(new MiniBatchLineReader(docIter)), "readerActor")
     val betaActor = system.actorOf(Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor")

@@ -49,6 +49,7 @@ case class DirichletSampler(alphas: Array[Float], rng: RandomGenerator){
 case class FastDirichletSampler(alphas: Array[Float], rng: RandomGenerator){
   def sample(): Array[Double] = {
     val ys = alphas.map{ alpha =>
+      assume(alpha >= 0)
       
       if (alpha < 0.01) alpha		// just return the mean
       else if (alpha > 2) {			// approximate by a Gaussian
