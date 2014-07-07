@@ -6,13 +6,13 @@ import akka.routing.RoundRobinRouter
 import scala.collection.mutable
 import scala.math._
 import scala.util.Random
-import org.apache.commons.math3.random.Well19937c
+
+
 import java.io._
 
 case class Doc(index: Int, content: Array[Int])
-case class BetaUpdate(update: String)
 
-// beta: topic-word distribution. T x V matrix.
+// beta: topic-word distribution. T x V matrix. Each row is a topic-word distribution.
 case class Beta(value: Array[Float], numTopics: Int, vocSize: Int){
   def get(topic: Int, word: Int): Float = value(topic * vocSize + word)
   def set(topic: Int, word: Int, x: Float): Unit = value(topic * vocSize + word) = x
@@ -74,28 +74,6 @@ case class WordTopicCounts(value: Array[Int], numTopics: Int, vocSize: Int){
 case class Theta(value: Array[Float])
 case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 
-object Sampler {
-  private val rng = new Well19937c()
-
-  def dirichlet(alphas: Array[Float]): Array[Double] = {
-    val dir = FastDirichletSampler(alphas, rng)
-    dir.sample
-  }
-
-  def multiNomial(alphas: Seq[Double]): Int = {
-    val x = Random.nextFloat
-    var s = 0.0
-    var i = 0
-    alphas.foreach{ a =>
-      s += a
-      if (s > x) return i
-      i += 1
-    }
-    alphas.size - 1
-  }
-
-}
-
 trait DocIterator {
   def hasNext: Boolean
   def next: Array[Int]
@@ -128,8 +106,6 @@ case class Sampling(doc: Doc, theta: Theta, beta: Beta) extends LDAMessage
 case class SamplingResult(docIndex: Int, theta: Theta, wordTopicAssign: WordTopicAssigns) extends LDAMessage
 
 class MiniBatchLineReader(docIter: DocIterator) extends Actor {
-  val milestoneStep = 50000
-  var milestone = milestoneStep - 1
 
   private def nextBatch(size: Int): MiniBatchDocs = {
     var buf = Vector[Doc]()
@@ -143,7 +119,6 @@ class MiniBatchLineReader(docIter: DocIterator) extends Actor {
 
     if (!docIter.hasNext){
       docIter.gotoHead()
-      milestone = milestoneStep - 1
       MiniBatchDocs(buf, wholeBatchEnded = true)
     }
     else MiniBatchDocs(buf, wholeBatchEnded = false)
@@ -151,10 +126,7 @@ class MiniBatchLineReader(docIter: DocIterator) extends Actor {
 
   def receive = {
     case NextMiniBatchRequest(size) => {
-      if (docIter.getPosition >= milestone) {
-        printf(s"\r milestone ${milestone} reached")
-        milestone += milestoneStep
-      }
+      printf(s"\rstart miniBatch from doc ${docIter.getPosition}")
       sender ! nextBatch(size)
     }
   }
@@ -363,7 +335,7 @@ object LDA {
     println(map)
 
     if (map.keySet != Set("nworker", "topicSize", "vocSize", "trainFile", "modelFile", "iters", "miniBatchSize", "discount")) {
-      println("not enough argument")
+      println("not enough arguments")
       exit(1)
     }
 
@@ -380,8 +352,7 @@ object LDA {
     val docIter = new DocIteratorImpl(map("trainFile"))
 
     val readerActor = system.actorOf(Props(new MiniBatchLineReader(docIter)), "readerActor")
-    val betaActor = system.actorOf(
-      Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor")
+    val betaActor = system.actorOf(Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor")
 
     betaActor ! StartTraining
   }
