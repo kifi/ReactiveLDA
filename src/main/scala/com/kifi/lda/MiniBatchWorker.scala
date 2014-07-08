@@ -75,22 +75,22 @@ case class BatchProgressTracker(val totalIters: Int){
 }
 
 
-class BetaActor(batchReader: ActorRef, LDAConfig: LDAConfig) extends Actor {
+class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
 
-  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], LDAConfig.numTopics).withRouter(RoundRobinRouter(LDAConfig.nworker)), name = "workerRouter")
+  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
-  val beta: Beta = Beta(new Array[Float](LDAConfig.numTopics * LDAConfig.vocSize), LDAConfig.numTopics, LDAConfig.vocSize)
-  val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](LDAConfig.numTopics * LDAConfig.vocSize), LDAConfig.numTopics, LDAConfig.vocSize)
-  val miniBatchSize = LDAConfig.miniBatchSize
+  val beta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
+  val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
+  val miniBatchSize = config.miniBatchSize
   val eta = 0.1f
-  val wordCounts = new Array[Int](LDAConfig.vocSize)
+  val wordCounts = new Array[Int](config.vocSize)
   var updateWordCount = true		// will be false once we finish one round
 
-  val tracker = BatchProgressTracker(LDAConfig.iterations)
+  val tracker = BatchProgressTracker(config.iterations)
 
 
   private def dispatchJobs(docs: Seq[Doc]) = {
-    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc, LDAConfig.numTopics) }
+    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc, config.numTopics) }
     else docs.foreach{ doc => workerRouter ! Sampling(doc, Theta(thetas(doc.index)), beta) }
   }
       
@@ -102,8 +102,8 @@ class BetaActor(batchReader: ActorRef, LDAConfig: LDAConfig) extends Actor {
       updateWordCount = false
     }
     
-    (0 until LDAConfig.numTopics).par.foreach { t =>
-      val counts = if (LDAConfig.discount){
+    (0 until config.numTopics).par.foreach { t =>
+      val counts = if (config.discount){
         
        val v = (wordTopicCounts.getRow(t) zip wordCounts).map{ case (a, b) => (a + eta)/b}
        val s = v.min.toDouble
@@ -124,8 +124,8 @@ class BetaActor(batchReader: ActorRef, LDAConfig: LDAConfig) extends Actor {
   
   private def saveModel(): Unit = {
     println("saving model...")
-    Beta.toFile(beta, LDAConfig.saveBetaPath)
-    WordTopicCounts.toFile(wordTopicCounts, LDAConfig.saveCountsPath)
+    Beta.toFile(beta, config.saveBetaPath)
+    WordTopicCounts.toFile(wordTopicCounts, config.saveCountsPath)
   }
 
   private def handleSamplingResult(result: SamplingResult){
