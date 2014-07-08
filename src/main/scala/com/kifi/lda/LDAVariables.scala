@@ -2,6 +2,9 @@ package com.kifi.lda
 
 import java.io._
 
+// theta: doc-topic distribution
+case class Theta(value: Array[Float])
+
 // beta: topic-word distribution. T x V matrix. Each row is a topic-word distribution.
 case class Beta(value: Array[Float], numTopics: Int, vocSize: Int){
   def get(topic: Int, word: Int): Float = value(topic * vocSize + word)
@@ -10,6 +13,22 @@ case class Beta(value: Array[Float], numTopics: Int, vocSize: Int){
     (0 until vocSize).map{ i => set(topic, i, row(i))}
   }
 }
+
+case class WordTopicCounts(value: Array[Int], numTopics: Int, vocSize: Int){
+  def get(topic: Int, word: Int): Int = value(topic * vocSize + word)
+  def incre(topic: Int, word: Int): Unit = { value(topic * vocSize + word) = value(topic * vocSize + word) + 1 }
+  def getRow(topicId: Int): Array[Int] = value.slice( topicId * vocSize, (topicId + 1) * vocSize)
+  def clearAll(){
+    var i = 0
+    while (i < value.size) {value(i) = 0; i += 1 }
+  }
+}
+
+case class Doc(index: Int, content: Array[Int])
+case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
+
+
+// some IO utils
 
 object Beta {
   def toBytes(beta: Beta): Array[Byte] = {
@@ -47,16 +66,6 @@ object Beta {
       i += 1
     }
     Beta(value, numTopics, vocSize)
-  }
-}
-
-case class WordTopicCounts(value: Array[Int], numTopics: Int, vocSize: Int){
-  def get(topic: Int, word: Int): Int = value(topic * vocSize + word)
-  def incre(topic: Int, word: Int): Unit = { value(topic * vocSize + word) = value(topic * vocSize + word) + 1 }
-  def getRow(topicId: Int): Array[Int] = value.slice( topicId * vocSize, (topicId + 1) * vocSize)
-  def clearAll(){
-    var i = 0
-    while (i < value.size) {value(i) = 0; i += 1 }
   }
 }
 
@@ -98,6 +107,3 @@ object WordTopicCounts {
     WordTopicCounts(value, numTopics, vocSize)
   }
 }
-
-// theta: doc-topic distribution
-case class Theta(value: Array[Float])
