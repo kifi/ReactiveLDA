@@ -47,7 +47,6 @@ class MiniBatchLineReader(docIter: DocIterator) extends Actor {
   }
 }
 
-case class TopicConfig(numTopics: Int, vocSize: Int, iterations: Int, discount: Boolean, miniBatchSize: Int, saveBetaPath: String, saveCountsPath: String)
 
 case class BatchProgressTracker(val totalIters: Int){
   private var batchCounter = 0
@@ -76,22 +75,22 @@ case class BatchProgressTracker(val totalIters: Int){
 }
 
 
-class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConfig) extends Actor {
+class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
 
-  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], topicConfig.numTopics).withRouter(RoundRobinRouter(numOfWorkers)), name = "workerRouter")
+  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
-  val beta: Beta = Beta(new Array[Float](topicConfig.numTopics * topicConfig.vocSize), topicConfig.numTopics, topicConfig.vocSize)
-  val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](topicConfig.numTopics * topicConfig.vocSize), topicConfig.numTopics, topicConfig.vocSize)
-  val miniBatchSize = topicConfig.miniBatchSize
+  val beta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
+  val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
+  val miniBatchSize = config.miniBatchSize
   val eta = 0.1f
-  val wordCounts = new Array[Int](topicConfig.vocSize)
+  val wordCounts = new Array[Int](config.vocSize)
   var updateWordCount = true		// will be false once we finish one round
 
-  val tracker = BatchProgressTracker(topicConfig.iterations)
+  val tracker = BatchProgressTracker(config.iterations)
 
 
   private def dispatchJobs(docs: Seq[Doc]) = {
-    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc, topicConfig.numTopics) }
+    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc, config.numTopics) }
     else docs.foreach{ doc => workerRouter ! Sampling(doc, Theta(thetas(doc.index)), beta) }
   }
       
@@ -103,8 +102,8 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
       updateWordCount = false
     }
     
-    (0 until topicConfig.numTopics).par.foreach { t =>
-      val counts = if (topicConfig.discount){
+    (0 until config.numTopics).par.foreach { t =>
+      val counts = if (config.discount){
         
        val v = (wordTopicCounts.getRow(t) zip wordCounts).map{ case (a, b) => (a + eta)/b}
        val s = v.min.toDouble
@@ -121,13 +120,12 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
 
     println(self.path.name + ": beta updated")
     println(s"batch counter = ${tracker.getBatchCounter}")
-
   }
   
   private def saveModel(): Unit = {
     println("saving model...")
-    Beta.toFile(beta, topicConfig.saveBetaPath)
-    WordTopicCounts.toFile(wordTopicCounts, topicConfig.saveCountsPath)
+    Beta.toFile(beta, config.saveBetaPath)
+    WordTopicCounts.toFile(wordTopicCounts, config.saveCountsPath)
   }
 
   private def handleSamplingResult(result: SamplingResult){
@@ -222,69 +220,14 @@ class DocSamplingActor(numTopics: Int) extends Actor {
 
 object LDA {
 
-  val usage = """
-    Usage: java -jar LDA.jar -nw nWorker -t topicSize -voc vocSize -iter iters -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
-    """
-
-  private def consume(map: Map[String, String], list: List[String]): Map[String, String] = {
-    list match {
-      case Nil => map
-      case "-nw" :: value :: tail => consume(map ++ Map("nworker" -> value), tail)
-      case "-t" :: value :: tail => consume(map ++ Map("topicSize" -> value), tail)
-      case "-voc" :: value :: tail => consume(map ++ Map("vocSize" -> value), tail)
-      case "-iter" :: value :: tail => consume(map ++ Map("iters" -> value), tail)
-      case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
-      case "-in" :: value :: tail => consume(map ++ Map("trainFile" -> value), tail)
-      case "-betaFile" :: value :: tail => consume(map ++ Map("betaFile" -> value), tail)
-      case "-countsFile" :: value :: tail => consume(map ++ Map("countsFile" -> value), tail)
-      case "-disc":: value :: tail => consume(map ++ Map("discount" -> value), tail)
-      case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
-      case option :: tail => println("unknown option " + option); exit(1)
-    }
-  }
-
-  private def parseArgs(args: Array[String]): Map[String, String] = {
-    val arglist = args.toList
-    consume(Map(), arglist)
-  }
-
   def main(args: Array[String]) = {
-
-    println("hello lda")
-
-    if (args.isEmpty) {
-      println(usage)
-      exit(1)
-    }
-
-    val map = consume(Map(), args.toList)
-    println(map)
-    
-    val requiredArgs = Set("nworker", "topicSize", "vocSize", "trainFile", "betaFile", "countsFile", "iters", "miniBatchSize", "discount")
-    
-    if (!requiredArgs.subsetOf(map.keySet)) {
-      println("not enough arguments")
-      exit(1)
-    }
-
     val system = ActorSystem("LDASystem")
-
-    val config = TopicConfig(
-      numTopics = map("topicSize").toInt,
-      vocSize = map("vocSize").toInt,
-      iterations = map("iters").toInt,
-      discount = map("discount").toBoolean,
-      miniBatchSize = map("miniBatchSize").toInt,
-      saveBetaPath = map("betaFile"),
-      saveCountsPath = map("countsFile"))
-      
-    val inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean
-
-    val docIter = if (inMem) new InMemoryDocIterator(map("trainFile")) else new DocIteratorImpl(map("trainFile"))
-
+    val config = LDAConfig.parseConfig(args)
+    
+    val docIter = if (config.inMem) new InMemoryDocIterator(config.trainFile) else new DocIteratorImpl(config.trainFile)
     val readerActor = system.actorOf(Props(new MiniBatchLineReader(docIter)), "readerActor")
-    val betaActor = system.actorOf(Props(new BetaActor(readerActor, map("nworker").toInt, config)), "betaActor")
-
+    val betaActor = system.actorOf(Props(new BetaActor(readerActor, config)), "betaActor")
+    
     betaActor ! StartTraining
   }
 
