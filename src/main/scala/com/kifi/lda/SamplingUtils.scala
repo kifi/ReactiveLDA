@@ -44,8 +44,8 @@ case class DirichletSampler(alphas: Array[Float], rng: RandomGenerator){
   
 }
 
-// in practice, the only relevant alpha is the one that comes from word counting, which are integers (easily > 2 )
-// for gamma with shape ( >= 2), it can be well approximated by Gaussian sampler. 
+// in practice, the alphas are from word counting, which are integers (easily > 2)
+// for gamma with shape (>= 2), it can be well approximated by Gaussian sampler. 
 case class FastDirichletSampler(alphas: Array[Float], rng: RandomGenerator){
   def sample(): Array[Double] = {
     val ys = alphas.map{ alpha =>

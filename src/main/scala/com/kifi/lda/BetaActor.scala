@@ -21,7 +21,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   val tracker = BatchProgressTracker(config.iterations)
 
   private def dispatchJobs(docs: Seq[Doc]) = {
-    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc, config.numTopics) }
+    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc) }
     else docs.foreach{ doc => workerRouter ! Sampling(doc, Theta(thetas(doc.index)), beta) }
   }
       

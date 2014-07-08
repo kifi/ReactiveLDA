@@ -44,7 +44,7 @@ class DocSamplingActor(numTopics: Int) extends Actor {
   }
 
   def receive = {
-    case UniformSampling(doc, numTopics) => sender ! uniformSampling(doc, numTopics)
+    case UniformSampling(doc) => sender ! uniformSampling(doc, numTopics)
 
     case Sampling(doc, theta, beta) => sender ! sampling(doc, theta, beta)
   }
