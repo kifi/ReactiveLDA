@@ -78,7 +78,7 @@ case class BatchProgressTracker(val totalIters: Int){
 
 class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConfig) extends Actor {
 
-  val workerRouter = context.actorOf(Props[DocSamplingActors].withRouter(RoundRobinRouter(numOfWorkers)), name = "workerRouter")
+  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], topicConfig.numTopics).withRouter(RoundRobinRouter(numOfWorkers)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
   val beta: Beta = Beta(new Array[Float](topicConfig.numTopics * topicConfig.vocSize), topicConfig.numTopics, topicConfig.vocSize)
   val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](topicConfig.numTopics * topicConfig.vocSize), topicConfig.numTopics, topicConfig.vocSize)
@@ -172,20 +172,24 @@ class BetaActor(batchReader: ActorRef, numOfWorkers: Int, topicConfig: TopicConf
   }
 }
 
-class DocSamplingActors extends Actor {
+class DocSamplingActor(numTopics: Int) extends Actor {
 
   private val alpha = 0.1f
+  private val topicCounts = Array.fill(numTopics)(alpha)
+  private val multinomial = new Array[Double](numTopics)
+  
+  private def resetTopicCounts() {
+    var i = 0
+    while (i < numTopics) { topicCounts(i) = alpha; i+= 1 }
+  }
 
   private def sampleTheta(zs: Seq[Int], numTopics: Int): Array[Float] = {
-    val topics = new Array[Int](numTopics)
     var i = 0
-    var t = 0
-    while (i < zs.size){
-      t = zs(i)
-      topics(t) += 1
-      i += 1
-    }
-    Sampler.dirichlet(topics.map{ _ + alpha}).map{_.toFloat}
+    while (i < zs.size){ topicCounts(zs(i)) += 1; i += 1 }
+    
+    val sample = Sampler.dirichlet(topicCounts).map{_.toFloat}
+    resetTopicCounts()
+    sample
   }
 
   private def uniformSampling(doc: Doc, numTopics: Int): SamplingResult = {
@@ -194,12 +198,14 @@ class DocSamplingActors extends Actor {
   }
 
   private def sampling(doc: Doc, theta: Theta, beta: Beta): SamplingResult = {
-    val numTopics = theta.value.size
 
     val zs = doc.content.map{ w =>
-      val multi = (0 until numTopics).map{ i => theta.value(i).toDouble * beta.get(i, w)}
-      val s = multi.sum
-      val z = Sampler.multiNomial(multi.map{ x => x/s})
+      var i = 0
+      while (i < numTopics){ multinomial(i) = theta.value(i).toDouble * beta.get(i, w); i += 1 }
+      val s = multinomial.sum
+      i = 0
+      while (i < numTopics){ multinomial(i) /= s; i+=1 }
+      val z = Sampler.multiNomial(multinomial)
       z
     }
 
