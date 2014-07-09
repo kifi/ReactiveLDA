@@ -6,6 +6,7 @@ import akka.routing.RoundRobinRouter
 import scala.collection.mutable
 import scala.math._
 import scala.util.Random
+import org.apache.commons.math3.random.Well19937c
 
 class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
 
@@ -17,8 +18,9 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   val eta = 0.1f
   val wordCounts = new Array[Int](config.vocSize)
   var updateWordCount = true		// will be false once we finish one round
-
   val tracker = BatchProgressTracker(config.iterations)
+  val rng = new Well19937c()
+  private val dirSampler = new FastDirichletSampler(rng)
 
   private def dispatchJobs(docs: Seq[Doc]) = {
     if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc) }
@@ -44,7 +46,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
         wordTopicCounts.getRow(t).map{_ + eta}
       }
       println(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
-      val b = Sampler.dirichlet(counts).map{_.toFloat}
+      val b = dirSampler.sample(counts)
       println(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
       beta.setRow(t, b)
     }

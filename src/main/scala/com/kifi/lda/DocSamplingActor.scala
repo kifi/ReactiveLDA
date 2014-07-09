@@ -2,12 +2,16 @@ package com.kifi.lda
 
 import akka.actor._
 import scala.util.Random
+import org.apache.commons.math3.random.Well19937c
 
 class DocSamplingActor(numTopics: Int) extends Actor {
 
   private val alpha = 0.1f
   private val topicCounts = Array.fill(numTopics)(alpha)
   private val multinomial = new Array[Double](numTopics)
+  private val rng = new Well19937c()
+  private val dirSampler = new FastDirichletSampler(rng)
+  private val multiSampler = new MultinomialSampler(rng)
   
   private def resetTopicCounts() {
     var i = 0
@@ -18,7 +22,7 @@ class DocSamplingActor(numTopics: Int) extends Actor {
     var i = 0
     while (i < zs.size){ topicCounts(zs(i)) += 1; i += 1 }
     
-    val sample = Sampler.dirichlet(topicCounts).map{_.toFloat}
+    val sample = dirSampler.sample(topicCounts)
     resetTopicCounts()
     sample
   }
@@ -36,7 +40,7 @@ class DocSamplingActor(numTopics: Int) extends Actor {
       val s = multinomial.sum
       i = 0
       while (i < numTopics){ multinomial(i) /= s; i+=1 }
-      val z = Sampler.multiNomial(multinomial)
+      val z = multiSampler.sample(multinomial)
       z
     }
 
