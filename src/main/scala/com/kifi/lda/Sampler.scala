@@ -23,13 +23,13 @@ case class DirichletSampler(alphas: Array[Float], rng: RandomGenerator){
   
   private val gammaSamplers = alphas.map{ alpha => new GammaDistribution(rng, alpha, 1)}
   
-  def sample(alphas: Array[Float]): Array[Double] = {
+  def sample(alphas: Array[Float]): Array[Float] = {
 	val ys = alphas.map{ alpha => 
 	  val sampler = new GammaDistribution(rng, alpha, 1)
 	  sampler.sample()
 	}
 	val s = ys.sum
-	ys.map{ y => y/s}
+	ys.map{ y => (y/s).toFloat}
   }
 }
 
