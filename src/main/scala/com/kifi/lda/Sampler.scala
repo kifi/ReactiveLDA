@@ -1,13 +1,13 @@
 package com.kifi.lda
 
-import scala.math.sqrt
+import scala.math._
 
 import org.apache.commons.math3.distribution.{GammaDistribution, NormalDistribution}
 import org.apache.commons.math3.random.RandomGenerator
 
 class MultinomialSampler(rng: RandomGenerator){
-  def sample(alphas: Seq[Double]): Int = {
-    val x = rng.nextFloat
+  def sample(alphas: Seq[Float], sumTo: Float = 1f): Int = {
+    val x = rng.nextFloat * sumTo
     var s = 0.0
     var i = 0
     alphas.foreach{ a =>
@@ -19,9 +19,7 @@ class MultinomialSampler(rng: RandomGenerator){
   }
 }
 
-case class DirichletSampler(alphas: Array[Float], rng: RandomGenerator){
-  
-  private val gammaSamplers = alphas.map{ alpha => new GammaDistribution(rng, alpha, 1)}
+case class DirichletSampler(rng: RandomGenerator){
   
   def sample(alphas: Array[Float]): Array[Float] = {
 	val ys = alphas.map{ alpha => 
@@ -44,7 +42,7 @@ case class FastDirichletSampler(rng: RandomGenerator){
       else if (alpha > 2) {			// approximate by a Gaussian
         val gaussianGen = new NormalDistribution(rng, alpha.toDouble, sqrt(alpha).toDouble)
         val s = gaussianGen.sample() 
-        s max (s * -1) // avoid negative
+        abs(s) // avoid negative
       } else {
         val gammaGen = new GammaDistribution(rng, alpha, 1)
         gammaGen.sample()
@@ -52,7 +50,6 @@ case class FastDirichletSampler(rng: RandomGenerator){
     }
     
     val s = ys.sum
-    
 	ys.map{y => (y/s).toFloat}
   }
 }
