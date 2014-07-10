@@ -68,7 +68,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
 
     (tracker.miniBatchFinished, tracker.isLastMiniBatch) match {
       case (false, _) =>
-      case (true, false) => batchReader ! NextMiniBatchRequest(miniBatchSize)
+      case (true, false) => batchReader ! NextMiniBatchRequest
       case (true, true) => {
         tracker.increBatchCounter()
         updateBeta()
@@ -77,7 +77,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
           context.system.shutdown()
         }  else {
           wordTopicCounts.clearAll()
-          batchReader ! NextMiniBatchRequest(miniBatchSize)
+          batchReader ! NextMiniBatchRequest
         }
       }
     }
@@ -91,7 +91,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   }
 
   def receive = {
-    case StartTraining => batchReader ! NextMiniBatchRequest(miniBatchSize)
+    case StartTraining => batchReader ! NextMiniBatchRequest
     case MiniBatchDocs(docs, wholeBatchEnded) => {
       if (wholeBatchEnded) tracker.isLastMiniBatch = true
       else tracker.isLastMiniBatch = false
