@@ -5,7 +5,7 @@ import scala.collection.mutable.ListBuffer
 
 trait DocIterator {
   def hasNext: Boolean
-  def next: Array[Int]
+  def next: Doc
   def gotoHead(): Unit
   def getPosition(): Int
 }
@@ -16,7 +16,7 @@ class DocIteratorImpl(fileName: String) extends DocIterator {
   def hasNext = lineIter.hasNext
   def next = {
     p += 1
-    lineIter.next.split(" ").map{_.toInt}
+    Doc(p, lineIter.next.split(" ").map{_.toInt})
   }
   def gotoHead() = {
     lineIter = Source.fromFile(fileName).getLines
@@ -44,7 +44,7 @@ class InMemoryDocIterator(fileName: String) extends DocIterator {
   
   def next = { 
     p += 1
-    iter.next
+    Doc(p, iter.next)
   }
   
   def gotoHead() = {

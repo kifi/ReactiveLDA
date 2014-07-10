@@ -10,10 +10,7 @@ class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
     var p = 0
 
     while(docIter.hasNext && p < batchSize){
-      buf(p) = {
-        val doc = docIter.next
-        Doc(docIter.getPosition, doc)
-      }
+      buf(p) = docIter.next
       p += 1
     }
 
@@ -21,7 +18,7 @@ class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
       docIter.gotoHead()
       MiniBatchDocs(buf.take(p), wholeBatchEnded = true)
     }
-    else MiniBatchDocs(buf.take(p), wholeBatchEnded = false)
+    else MiniBatchDocs(buf, wholeBatchEnded = false)
   }
 
   def receive = {
