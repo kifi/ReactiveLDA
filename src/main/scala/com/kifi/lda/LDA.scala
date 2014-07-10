@@ -9,7 +9,7 @@ object LDA {
     val config = LDAConfig.parseConfig(args)
     
     val docIter = if (config.inMem) new InMemoryDocIterator(config.trainFile) else new DocIteratorImpl(config.trainFile)
-    val readerActor = system.actorOf(Props(new MiniBatchActor(docIter)), "readerActor")
+    val readerActor = system.actorOf(Props(new MiniBatchActor(docIter, config.miniBatchSize)), "readerActor")
     val betaActor = system.actorOf(Props(new BetaActor(readerActor, config)), "betaActor")
     
     betaActor ! StartTraining
