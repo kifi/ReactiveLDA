@@ -15,11 +15,25 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
     val words = word2id.map.keySet
     val wordvecs = words.map { w: String =>
 	  val wid = word2id.map(w)
-	  val v = (0 until T).map { t => beta.get(t, wid) };
-	  val s = v.sum;
-	  w -> v.map { _ / s }.toArray;
+	  val v = (0 until T).map { t => beta.get(t, wid) }
+	  val s = v.sum
+	  w -> v.map { _ / s }.toArray
     }
     wordvecs.toMap
+  }
+  
+  val wordLabels: Map[String, Int] = {
+    wordvecs.map{ case (w, vec) =>
+      var (i, label, m) = (0, -1, -1f)
+      while (i < T){
+        if (vec(i) > m){
+          m = vec(i)
+          label = i
+        }
+        i+=1
+      }
+      w -> label
+    }
   }
   
   def showTopics(topic: Int, topK: Int) = {
@@ -39,15 +53,14 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
     showTopics(topic, prefetch).map{ case (w, x) => (w, x/(exp(idf.map(w))))}.sortBy(-1f*_._2).take(topK)
   }
   
-  def getAllTopics(): String = {
-    (0 until T).map{ i => val t = showTopicWithIdfDiscount(i, 100).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
+  def getAllTopics(useDiscount: Boolean): String = {
+    if (useDiscount) (0 until T).map{ i => val t = showTopicWithIdfDiscount(i, 100).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
+    else (0 until T).map{ i => val t = showTopics(i, 100).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
   }
   
-  // (num_words_labeled_as_topic, topic). This is helpful in identifying big 'trivial' topics
+  //(topic_id, words_in_this_topic) This is helpful in identifying big 'trivial' topics
   def topicSize(): Array[(Int, Int)] = {
-    val count = new Array[Int](T)
-    wordvecs.foreach{ case (_, v) => val idx = v.zipWithIndex.sortBy(-1f*_._1).head._2; count(idx) = count(idx) + 1}
-    count.zipWithIndex.sortBy(-1f * _._1)
+    wordLabels.groupBy(_._2).map{ case (label, words) => (label, words.size)}.toArray
   } 
   
   def topicRelation() = {
@@ -88,5 +101,9 @@ object ModelReader {
     val jstr = Source.fromFile(file).mkString
     val map = parse(jstr).extract[Map[String, Float]]
     Idf(map)
+  }
+  
+  def parseWordTopicCounts(file: String) = {
+    WordTopicCounts.fromFile(file)
   }
 }
