@@ -1,5 +1,23 @@
 package com.kifi.lda
 
+/**
+ * Configs:
+ * - nworker: num of DocSamplingActors. This is the main factor of parallel speed up.
+ * - numTopic: num of topics
+ * - vocSize: vocabulary size
+ * - iterations: how many iterations on the corpus
+ * - discount: This is used when we update Beta after one whole corpus update is finished. Default to false. For standard LDA algorithm, this should be false.
+ * For each topic, we have a topic-word count vector, which represents how many times a word is assigned to a topic during Gibbs
+ * sampling. However, frequent words (in the corpus) will have more opportunities to sample a topic. Thus, the topic-word counts may be biased towards
+ * more frequent words, leads to a biased estimation that those words are "important" for that topic. Set this to true if you want to discount that bias. 
+ * - inMem: If true, load entire corpus into an in-memory iterator. Otherwise, corpus stays on disk.
+ * - miniBatchSize: A whole batch means a Gibbs sampling for the entire corpus. Since loading entire corpus into memory may not be feasible, miniBatchSize
+ * controls how many documents to be loaded into memory. Bigger values require more memory consumption. Small values may have an impact on paralle speed up.
+ * - trainFile: path to training file.
+ * - saveBetaPath: path to saved Beta file.
+ * - saveCountsPath: path to saved topic-word counts file.   
+ */
+
 case class LDAConfig(
   nworker: Int,
   numTopics: Int, 
@@ -19,7 +37,7 @@ object LDAConfig {
     Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
     """
     
-  val requiredArgs = Set("nworker", "numTopics", "vocSize", "iterations", "discount", "miniBatchSize", "trainFile", "betaFile", "countsFile")
+  val requiredArgs = Set("nworker", "numTopics", "vocSize", "iterations", "miniBatchSize", "trainFile", "betaFile", "countsFile")
 
   private def consume(map: Map[String, String], list: List[String]): Map[String, String] = {
     list match {
@@ -62,7 +80,7 @@ object LDAConfig {
       numTopics = map("numTopics").toInt,
       vocSize = map("vocSize").toInt,
       iterations = map("iterations").toInt,
-      discount = map("discount").toBoolean,
+      discount = map.get("discount").getOrElse("false").toBoolean,
       miniBatchSize = map("miniBatchSize").toInt,
       trainFile = map("trainFile"),
       saveBetaPath = map("betaFile"),
