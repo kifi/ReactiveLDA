@@ -19,7 +19,6 @@ package com.kifi.lda
  * - skip: after burned in, gather one sample point (of beta) every skip size. 
  * - trainFile: path to training file.
  * - saveBetaPath: path to saved Beta file.
- * - saveCountsPath: path to saved topic-word counts file.   
  */
 
 case class LDAConfig(
@@ -35,8 +34,7 @@ case class LDAConfig(
   burnIn: Int,
   skip: Int,
   trainFile: String,
-  saveBetaPath: String, 
-  saveCountsPath: String
+  saveBetaPath: String
 )
 
 object LDAConfig {
@@ -44,10 +42,10 @@ object LDAConfig {
   val usage = """
     Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-disc discountWordFreq] 
     [-inMem inMemoryCorpus] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
-    -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
+    -in trainFile -betaFile betaFilePath 
     """
     
-  val requiredArgs = Set("nworker", "numTopics", "vocSize", "iterations", "miniBatchSize", "trainFile", "betaFile", "countsFile")
+  val requiredArgs = Set("nworker", "numTopics", "vocSize", "iterations", "miniBatchSize", "trainFile", "betaFile")
 
   private def consume(map: Map[String, String], list: List[String]): Map[String, String] = {
     list match {
@@ -65,7 +63,6 @@ object LDAConfig {
       case "-skip" :: value :: tail => consume(map ++ Map("skip" -> value), tail)
       case "-in" :: value :: tail => consume(map ++ Map("trainFile" -> value), tail)
       case "-betaFile" :: value :: tail => consume(map ++ Map("betaFile" -> value), tail)
-      case "-countsFile" :: value :: tail => consume(map ++ Map("countsFile" -> value), tail)
       case option :: tail => println("unknown option " + option); exit(1)
     }
   }
@@ -102,7 +99,6 @@ object LDAConfig {
       skip = map.get("skip").getOrElse("5").toInt,
       trainFile = map("trainFile"),
       saveBetaPath = map("betaFile"),
-      saveCountsPath = map("countsFile"),
       inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean)
     
     if (conf.burnIn > conf.iterations){

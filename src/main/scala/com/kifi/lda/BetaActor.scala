@@ -87,7 +87,6 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
     println("saving model...")
     avgBeta()
     Beta.toFile(burnedBeta, config.saveBetaPath)
-    WordTopicCounts.toFile(wordTopicCounts, config.saveCountsPath)
   }
   
   private def avgBeta(): Unit = {
