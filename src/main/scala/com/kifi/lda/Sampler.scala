@@ -6,6 +6,7 @@ import org.apache.commons.math3.distribution.{GammaDistribution, NormalDistribut
 import org.apache.commons.math3.random.RandomGenerator
 
 class MultinomialSampler(rng: RandomGenerator){
+  // alphas need not be normalized. save one scan of the array.
   def sample(alphas: Seq[Float], sumTo: Float = 1f): Int = {
     val x = rng.nextFloat * sumTo
     var s = 0.0
@@ -22,23 +23,28 @@ class MultinomialSampler(rng: RandomGenerator){
 case class DirichletSampler(rng: RandomGenerator){
   
   def sample(alphas: Array[Float]): Array[Float] = {
+    var s = 0.0
 	val ys = alphas.map{ alpha => 
 	  val sampler = new GammaDistribution(rng, alpha, 1)
-	  sampler.sample()
+	  val y = sampler.sample()
+	  s += y
+	  y
 	}
-	val s = ys.sum
 	ys.map{ y => (y/s).toFloat}
   }
 }
 
-// in practice, the alphas are from word counting, which are integers (easily > 2)
-// for gamma with shape (>= 2), it can be well approximated by Gaussian sampler. 
+
+/**
+ *  For gamma with shape (>= 2), it can be well approximated by Gaussian sampler.
+ */  
 case class FastDirichletSampler(rng: RandomGenerator){
   def sample(alphas: Array[Float]): Array[Float] = {
+    var s = 0.0
     val ys = alphas.map{ alpha =>
       assume(alpha >= 0)
       
-      if (alpha < 0.01) alpha		// just return the mean
+      val y = if (alpha < 0.01) alpha		// just return the mean
       else if (alpha > 2) {			// approximate by a Gaussian
         val gaussianGen = new NormalDistribution(rng, alpha.toDouble, sqrt(alpha).toDouble)
         val s = gaussianGen.sample() 
@@ -47,9 +53,10 @@ case class FastDirichletSampler(rng: RandomGenerator){
         val gammaGen = new GammaDistribution(rng, alpha, 1)
         gammaGen.sample()
       }
+      s += y
+      y
     }
     
-    val s = ys.sum
 	ys.map{y => (y/s).toFloat}
   }
 }
