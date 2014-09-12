@@ -10,18 +10,22 @@ trait DocIterator {
   def getPosition(): Int
 }
 
-class DocIteratorImpl(fileName: String) extends DocIterator {
+class OnDiskDocIterator(fileName: String) extends DocIterator {
   private var lineIter = Source.fromFile(fileName).getLines
   private var p = 0
+  
   def hasNext = lineIter.hasNext
+  
   def next = {
     p += 1
     Doc(p, lineIter.next.split(" ").map{_.toInt})
   }
+  
   def gotoHead() = {
     lineIter = Source.fromFile(fileName).getLines
     p = 0
   }
+  
   def getPosition(): Int = p
 }
 

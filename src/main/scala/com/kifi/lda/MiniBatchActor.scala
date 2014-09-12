@@ -2,6 +2,9 @@ package com.kifi.lda
 
 import akka.actor._
 
+/**
+ * fetch next batch of documents for the workers. 
+ */
 class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
   
   val buf = new Array[Doc](batchSize)
@@ -16,7 +19,7 @@ class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
 
     if (!docIter.hasNext){
       docIter.gotoHead()
-      MiniBatchDocs(buf.take(p), wholeBatchEnded = true)
+      MiniBatchDocs(buf.take(p), wholeBatchEnded = true)		// entire corpus scanned once. 
     }
     else MiniBatchDocs(buf, wholeBatchEnded = false)
   }

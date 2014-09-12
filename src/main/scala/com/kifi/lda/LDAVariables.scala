@@ -2,6 +2,10 @@ package com.kifi.lda
 
 import java.io._
 
+/**
+ * Variables in the graphical model.
+ */
+
 // theta: doc-topic distribution
 case class Theta(value: Array[Float])
 
@@ -10,7 +14,8 @@ case class Beta(value: Array[Float], numTopics: Int, vocSize: Int){
   def get(topic: Int, word: Int): Float = value(topic * vocSize + word)
   def set(topic: Int, word: Int, x: Float): Unit = value(topic * vocSize + word) = x
   def setRow(topic: Int, row: Array[Float]): Unit = {
-    (0 until vocSize).map{ i => set(topic, i, row(i))}
+    var i = 0
+    while (i < vocSize) { set(topic, i, row(i)); i += 1 }
   }
 }
 
