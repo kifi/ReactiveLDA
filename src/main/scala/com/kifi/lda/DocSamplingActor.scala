@@ -4,9 +4,9 @@ import akka.actor._
 import scala.util.Random
 import org.apache.commons.math3.random.Well19937c
 
-class DocSamplingActor(numTopics: Int) extends Actor {
+class DocSamplingActor(numTopics: Int, alph: Float) extends Actor {
 
-  private val alpha = 0.1f
+  private val alpha = alph
   private val topicCounts = new Array[Float](numTopics)
   private val multinomial = new Array[Float](numTopics)
   private val rng = new Well19937c()
