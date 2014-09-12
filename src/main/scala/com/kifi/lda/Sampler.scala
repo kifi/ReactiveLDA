@@ -44,8 +44,7 @@ case class FastDirichletSampler(rng: RandomGenerator){
     val ys = alphas.map{ alpha =>
       assume(alpha >= 0)
       
-      val y = if (alpha < 0.01) alpha		// just return the mean
-      else if (alpha > 2) {			// approximate by a Gaussian
+      val y = if (alpha > 2) {			// approximate by a Gaussian
         val gaussianGen = new NormalDistribution(rng, alpha.toDouble, sqrt(alpha).toDouble)
         val s = gaussianGen.sample() 
         abs(s) // avoid negative
