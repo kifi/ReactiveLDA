@@ -21,9 +21,21 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   val tracker = BatchProgressTracker(config.iterations)
   val rng = new Well19937c()
   private val dirSampler = new FastDirichletSampler(rng)
+  
+  def receive = {
+    case StartTraining => batchReader ! NextMiniBatchRequest
+    case MiniBatchDocs(docs, wholeBatchEnded) => {
+      if (wholeBatchEnded) tracker.isLastMiniBatch = true
+      else tracker.isLastMiniBatch = false
+
+      tracker.startTrackingMiniBatch(docs.size)
+      dispatchJobs(docs)
+    }
+    case result: SamplingResult => handleSamplingResult(result)
+  }
 
   private def dispatchJobs(docs: Seq[Doc]) = {
-    if (tracker.initalUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc) }
+    if (tracker.initialUniformSampling) docs.foreach{ doc => workerRouter ! UniformSampling(doc) }
     else docs.foreach{ doc => workerRouter ! Sampling(doc, Theta(thetas(doc.index)), beta) }
   }
       
@@ -84,47 +96,11 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   }
 
   private def updateWordTopicCounts(result: SamplingResult){
-    result.wordTopicAssign.value.map{ case (wordId, topicId) =>
+    result.wordTopicAssign.value.foreach{ case (wordId, topicId) =>
       wordTopicCounts.incre(topicId, wordId)
       if (updateWordCount) wordCounts(wordId) = wordCounts(wordId) + 1
     }
   }
-
-  def receive = {
-    case StartTraining => batchReader ! NextMiniBatchRequest
-    case MiniBatchDocs(docs, wholeBatchEnded) => {
-      if (wholeBatchEnded) tracker.isLastMiniBatch = true
-      else tracker.isLastMiniBatch = false
-
-      tracker.startTrackingMiniBatch(docs.size)
-      dispatchJobs(docs)
-    }
-    case result: SamplingResult => handleSamplingResult(result)
-  }
-}
-
-case class BatchProgressTracker(val totalIters: Int){
-  private var batchCounter = 0
-  private var currMiniBatchSize: Int = 0
-  private var miniBatchCounter: Int = 0
-  private var _isLastMiniBatch: Boolean = false
-  def isLastMiniBatch = _isLastMiniBatch
-  def isLastMiniBatch_=(isLast: Boolean) = _isLastMiniBatch = isLast
-
-  def initalUniformSampling: Boolean = batchCounter < 1
-
-  def startTrackingMiniBatch(miniBatchSize: Int) = {
-    currMiniBatchSize = miniBatchSize
-    miniBatchCounter = 0
-  }
-  def increMiniBatchCounter() = miniBatchCounter += 1
-  def miniBatchFinished = miniBatchCounter == currMiniBatchSize
-
-  def increBatchCounter() = {
-    println(s"\none whole batch finished!!!")
-    batchCounter += 1
-  }
-  def getBatchCounter = batchCounter
   
-  def batchFinished = batchCounter == totalIters
 }
+
