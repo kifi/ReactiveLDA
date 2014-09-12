@@ -13,20 +13,25 @@ class DocSamplingActor(numTopics: Int) extends Actor {
   private val dirSampler = new FastDirichletSampler(rng)
   private val multiSampler = new MultinomialSampler(rng)
   
+  def receive = {
+    case UniformSampling(doc) => sender ! uniformSampling(doc, numTopics)
+    case Sampling(doc, theta, beta) => sender ! sampling(doc, theta, beta)
+  }
+  
   private def resetTopicCounts() {
     var i = 0
     while (i < numTopics) { topicCounts(i) = alpha; i+= 1 }
   }
 
   private def sampleTheta(zs: Seq[Int]): Array[Float] = {
-    var i = 0
     resetTopicCounts()
+    var i = 0
     while (i < zs.size){ topicCounts(zs(i)) += 1; i += 1 }
     dirSampler.sample(topicCounts)
   }
 
   private def uniformSampling(doc: Doc, numTopics: Int): SamplingResult = {
-    val z = (0 until doc.content.size).map{ x => Random.nextInt(numTopics)}
+    val z = doc.content.map{ _ => Random.nextInt(numTopics)}
     SamplingResult(doc.index, Theta(sampleTheta(z)), WordTopicAssigns((doc.content zip z)))
   }
 
@@ -42,9 +47,4 @@ class DocSamplingActor(numTopics: Int) extends Actor {
     SamplingResult(doc.index, Theta(sampleTheta(zs)), WordTopicAssigns((doc.content zip zs)))
   }
 
-  def receive = {
-    case UniformSampling(doc) => sender ! uniformSampling(doc, numTopics)
-
-    case Sampling(doc, theta, beta) => sender ! sampling(doc, theta, beta)
-  }
 }

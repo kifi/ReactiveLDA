@@ -31,3 +31,35 @@ class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
     }
   }
 }
+
+
+case class BatchProgressTracker(val totalIters: Int){
+  private var batchCounter = 0
+  private var currMiniBatchSize: Int = 0
+  private var miniBatchCounter: Int = 0
+  private var _isLastMiniBatch: Boolean = false
+  
+  def isLastMiniBatch = _isLastMiniBatch
+  
+  def isLastMiniBatch_=(isLast: Boolean) = _isLastMiniBatch = isLast
+
+  def initialUniformSampling: Boolean = batchCounter < 1
+
+  def startTrackingMiniBatch(miniBatchSize: Int) = {
+    currMiniBatchSize = miniBatchSize
+    miniBatchCounter = 0
+  }
+  
+  def increMiniBatchCounter() = miniBatchCounter += 1
+  
+  def miniBatchFinished = miniBatchCounter == currMiniBatchSize
+
+  def increBatchCounter() = {
+    println(s"\none whole batch finished!!!")
+    batchCounter += 1
+  }
+  
+  def getBatchCounter = batchCounter
+  
+  def batchFinished = batchCounter == totalIters
+}
