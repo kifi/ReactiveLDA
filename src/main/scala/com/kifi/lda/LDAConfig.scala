@@ -13,7 +13,9 @@ package com.kifi.lda
  * - inMem: If true, load entire corpus into an in-memory iterator. Otherwise, corpus stays on disk.
  * - miniBatchSize: A whole batch means a Gibbs sampling for the entire corpus. Since loading entire corpus into memory may not be feasible, miniBatchSize
  * controls how many documents to be loaded into memory. Bigger values require more memory consumption. Small values may have an impact on paralle speed up.
- * - burn: burn in steps.
+ * - eta: smooth factor for computing beta (topic-word distribution). default = 0.1
+ * - alpha: smooth factor for computing theta (document-topic distribution). default = 0.1
+ * - burnIn: burn in steps.
  * - skip: after burned in, gather one sample point (of beta) every skip size. 
  * - trainFile: path to training file.
  * - saveBetaPath: path to saved Beta file.
@@ -28,6 +30,10 @@ case class LDAConfig(
   discount: Boolean,
   inMem: Boolean,
   miniBatchSize: Int,
+  eta: Float,
+  alpha: Float,
+  burnIn: Int,
+  skip: Int,
   trainFile: String,
   saveBetaPath: String, 
   saveCountsPath: String
@@ -36,7 +42,9 @@ case class LDAConfig(
 object LDAConfig {
   
   val usage = """
-    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations -disc discountWordFreq -inMem inMemoryCorpus -b miniBatchSize -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
+    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-disc discountWordFreq] 
+    [-inMem inMemoryCorpus] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
+    -in trainFile -betaFile betaFilePath -countsFile countsFilePath 
     """
     
   val requiredArgs = Set("nworker", "numTopics", "vocSize", "iterations", "miniBatchSize", "trainFile", "betaFile", "countsFile")
@@ -51,6 +59,10 @@ object LDAConfig {
       case "-disc":: value :: tail => consume(map ++ Map("discount" -> value), tail)
       case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
       case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
+      case "-eta" :: value :: tail => consume(map ++ Map("eta" -> value), tail)
+      case "-alpha" :: value :: tail => consume(map ++ Map("alpha" -> value), tail)
+      case "-burnIn" :: value :: tail => consume(map ++ Map("burnIn" -> value), tail)
+      case "-skip" :: value :: tail => consume(map ++ Map("skip" -> value), tail)
       case "-in" :: value :: tail => consume(map ++ Map("trainFile" -> value), tail)
       case "-betaFile" :: value :: tail => consume(map ++ Map("betaFile" -> value), tail)
       case "-countsFile" :: value :: tail => consume(map ++ Map("countsFile" -> value), tail)
@@ -77,16 +89,27 @@ object LDAConfig {
       exit(1)
     }
     
-    LDAConfig(
+    val conf = LDAConfig(
       nworker = map("nworker").toInt,  
       numTopics = map("numTopics").toInt,
       vocSize = map("vocSize").toInt,
       iterations = map("iterations").toInt,
       discount = map.get("discount").getOrElse("false").toBoolean,
       miniBatchSize = map("miniBatchSize").toInt,
+      burnIn = map.get("burnIn").getOrElse("50").toInt,
+      eta = map.get("eta").getOrElse("0.1").toFloat,
+      alpha = map.get("alpha").getOrElse("0.1").toFloat,
+      skip = map.get("skip").getOrElse("5").toInt,
       trainFile = map("trainFile"),
       saveBetaPath = map("betaFile"),
       saveCountsPath = map("countsFile"),
       inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean)
+    
+    if (conf.burnIn > conf.iterations){
+      println(s"invalid burnIn size: burnIn size should be less or equal to total number of iterations")
+      exit(1)
+    }
+      
+    conf  
   }
 }

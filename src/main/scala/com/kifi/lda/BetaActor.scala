@@ -10,17 +10,17 @@ import org.apache.commons.math3.random.Well19937c
 
 class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
 
-  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
+  val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics, config.alpha).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
   val beta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
   val burnedBeta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize) 
   val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
   val miniBatchSize = config.miniBatchSize
-  val burnIn = 30
-  val skip = 5
+  val burnIn = config.burnIn
+  val skip = config.skip
   var betaUpdatedTimes = 0
   var numBetaSamples = 0
-  val eta = 0.1f
+  val eta = config.eta
   val wordCounts = new Array[Int](config.vocSize)
   var updateWordCount = true		// will be false once we finish one round
   val tracker = BatchProgressTracker(config.iterations)
@@ -126,4 +126,3 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   }
   
 }
-
