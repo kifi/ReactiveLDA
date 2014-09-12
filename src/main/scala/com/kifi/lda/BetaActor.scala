@@ -13,8 +13,13 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
   val beta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
+  val burnedBeta: Beta = Beta(new Array[Float](config.numTopics * config.vocSize), config.numTopics, config.vocSize) 
   val wordTopicCounts: WordTopicCounts = WordTopicCounts(new Array[Int](config.numTopics * config.vocSize), config.numTopics, config.vocSize)
   val miniBatchSize = config.miniBatchSize
+  val burnIn = 30
+  val skip = 5
+  var betaUpdatedTimes = 0
+  var numBetaSamples = 0
   val eta = 0.1f
   val wordCounts = new Array[Int](config.vocSize)
   var updateWordCount = true		// will be false once we finish one round
@@ -62,6 +67,17 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
       println(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
       beta.setRow(t, b)
     }
+    
+    
+    
+    betaUpdatedTimes += 1
+    if (betaUpdatedTimes >= burnIn && ((betaUpdatedTimes - burnIn) % skip == 0)){
+      println("updating burned-in beta")
+      numBetaSamples += 1
+      var i = 0
+      val n = burnedBeta.value.size
+      while (i < n) { burnedBeta.value(i) += beta.value(i); i += 1} 
+    }
 
     println(self.path.name + ": beta updated")
     println(s"batch counter = ${tracker.getBatchCounter}")
@@ -69,8 +85,15 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   
   private def saveModel(): Unit = {
     println("saving model...")
-    Beta.toFile(beta, config.saveBetaPath)
+    avgBeta()
+    Beta.toFile(burnedBeta, config.saveBetaPath)
     WordTopicCounts.toFile(wordTopicCounts, config.saveCountsPath)
+  }
+  
+  private def avgBeta(): Unit = {
+    var i = 0
+    val n = burnedBeta.value.size
+    while (i < n) { burnedBeta.value(i) /= numBetaSamples; i += 1} 
   }
 
   private def handleSamplingResult(result: SamplingResult){

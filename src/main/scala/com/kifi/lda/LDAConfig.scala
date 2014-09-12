@@ -13,6 +13,8 @@ package com.kifi.lda
  * - inMem: If true, load entire corpus into an in-memory iterator. Otherwise, corpus stays on disk.
  * - miniBatchSize: A whole batch means a Gibbs sampling for the entire corpus. Since loading entire corpus into memory may not be feasible, miniBatchSize
  * controls how many documents to be loaded into memory. Bigger values require more memory consumption. Small values may have an impact on paralle speed up.
+ * - burn: burn in steps.
+ * - skip: after burned in, gather one sample point (of beta) every skip size. 
  * - trainFile: path to training file.
  * - saveBetaPath: path to saved Beta file.
  * - saveCountsPath: path to saved topic-word counts file.   
