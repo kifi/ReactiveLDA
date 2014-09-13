@@ -8,7 +8,7 @@ import scala.math._
 import scala.util.Random
 import org.apache.commons.math3.random.Well19937c
 
-class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
+class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Logging{
 
   val workerRouter = context.actorOf(Props(classOf[DocSamplingActor], config.numTopics, config.alpha).withRouter(RoundRobinRouter(config.nworker)), name = "workerRouter")
   val thetas = mutable.Map.empty[Int, Array[Float]]
@@ -26,6 +26,8 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
   val tracker = BatchProgressTracker(config.iterations)
   val rng = new Well19937c()
   private val dirSampler = new FastDirichletSampler(rng)
+  
+  log.setLevel(config.loglevel)
   
   def receive = {
     case StartTraining => batchReader ! NextMiniBatchRequest
@@ -48,7 +50,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
     println(self.path.name + ": updating beta")
     
     if (updateWordCount == true){
-      println(s"word count finished: ${wordCounts.take(10).mkString(", ")}")
+      log.info(s"word count finished: ${wordCounts.take(10).mkString(", ")}")
       updateWordCount = false
     }
     
@@ -62,9 +64,9 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
       } else {
         wordTopicCounts.getRow(t).map{_ + eta}
       }
-      println(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
+      log.info(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
       val b = dirSampler.sample(counts)
-      println(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
+      log.info(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
       beta.setRow(t, b)
     }
     
@@ -72,7 +74,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
     
     betaUpdatedTimes += 1
     if (betaUpdatedTimes >= burnIn && ((betaUpdatedTimes - burnIn) % skip == 0)){
-      println("updating burned-in beta")
+      log.info("updating burned-in beta")
       numBetaSamples += 1
       var i = 0
       val n = burnedBeta.value.size
@@ -80,7 +82,6 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor {
     }
 
     println(self.path.name + ": beta updated")
-    println(s"batch counter = ${tracker.getBatchCounter}")
   }
   
   private def saveModel(): Unit = {

@@ -1,5 +1,7 @@
 package com.kifi.lda
 
+import java.util.logging.Level
+
 /**
  * Configs:
  * - nworker: num of DocSamplingActors. This is the main factor of parallel speed up.
@@ -34,13 +36,14 @@ case class LDAConfig(
   burnIn: Int,
   skip: Int,
   trainFile: String,
-  saveBetaPath: String
+  saveBetaPath: String,
+  loglevel: Level
 )
 
 object LDAConfig {
   
   val usage = """
-    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-disc discountWordFreq] 
+    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-disc discountWordFreq] [-verbose verbose] 
     [-inMem inMemoryCorpus] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
     -in trainFile -betaFile betaFilePath 
     """
@@ -54,7 +57,8 @@ object LDAConfig {
       case "-t" :: value :: tail => consume(map ++ Map("numTopics" -> value), tail)
       case "-voc" :: value :: tail => consume(map ++ Map("vocSize" -> value), tail)
       case "-iter" :: value :: tail => consume(map ++ Map("iterations" -> value), tail)
-      case "-disc":: value :: tail => consume(map ++ Map("discount" -> value), tail)
+      case "-disc" :: value :: tail => consume(map ++ Map("discount" -> value), tail)
+      case "-verbose" :: value :: tail => consume(map ++ Map("verbose" -> value), tail)
       case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
       case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
       case "-eta" :: value :: tail => consume(map ++ Map("eta" -> value), tail)
@@ -86,6 +90,8 @@ object LDAConfig {
       exit(1)
     }
     
+    val logLevel = if (map.get("verbose").getOrElse("false").toBoolean) Level.INFO else Level.OFF
+    
     val conf = LDAConfig(
       nworker = map("nworker").toInt,  
       numTopics = map("numTopics").toInt,
@@ -99,7 +105,9 @@ object LDAConfig {
       skip = map.get("skip").getOrElse("5").toInt,
       trainFile = map("trainFile"),
       saveBetaPath = map("betaFile"),
-      inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean)
+      inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean,
+      loglevel = logLevel
+      )
     
     if (conf.burnIn > conf.iterations){
       println(s"invalid burnIn size: burnIn size should be less or equal to total number of iterations")
