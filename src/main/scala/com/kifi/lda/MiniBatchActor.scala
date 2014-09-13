@@ -5,7 +5,7 @@ import akka.actor._
 /**
  * fetch next batch of documents for the workers. 
  */
-class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
+class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor{
   
   val buf = new Array[Doc](batchSize)
 
@@ -33,7 +33,7 @@ class MiniBatchActor(docIter: DocIterator, batchSize: Int) extends Actor {
 }
 
 
-case class BatchProgressTracker(val totalIters: Int){
+case class BatchProgressTracker(val totalIters: Int) {
   private var batchCounter = 0
   private var currMiniBatchSize: Int = 0
   private var miniBatchCounter: Int = 0
@@ -55,7 +55,7 @@ case class BatchProgressTracker(val totalIters: Int){
   def miniBatchFinished = miniBatchCounter == currMiniBatchSize
 
   def increBatchCounter() = {
-    println(s"\none whole batch finished!!!")
+    println(s"\nbatch ${batchCounter + 1} finished!!!")
     batchCounter += 1
   }
   
