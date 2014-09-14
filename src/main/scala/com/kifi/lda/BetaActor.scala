@@ -55,22 +55,12 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
     }
     
     (0 until config.numTopics).foreach { t =>
-      val counts = if (config.discount){
-        
-       val v = (wordTopicCounts.getRow(t) zip wordCounts).map{ case (a, b) => (a + eta)/b}
-       val s = v.min.toDouble
-       v.map{ x => (x/s min Float.MaxValue).toFloat}
-       
-      } else {
-        wordTopicCounts.getRow(t).map{_ + eta}
-      }
+      val counts = wordTopicCounts.getRow(t).map{_ + eta}
       log.info(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
       val b = dirSampler.sample(counts)
       log.info(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
       beta.setRow(t, b)
     }
-    
-    
     
     betaUpdatedTimes += 1
     if (betaUpdatedTimes >= burnIn && ((betaUpdatedTimes - burnIn) % skip == 0)){
