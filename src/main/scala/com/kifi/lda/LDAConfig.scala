@@ -8,10 +8,6 @@ import java.util.logging.Level
  * - numTopic: num of topics
  * - vocSize: vocabulary size
  * - iterations: how many iterations on the corpus
- * - discount: This is used when we update Beta after one whole corpus update is finished. Default to false. For standard LDA algorithm, this should be false.
- * For each topic, we have a topic-word count vector, which represents how many times a word is assigned to a topic during Gibbs
- * sampling. However, frequent words (in the corpus) will have more opportunities to sample a topic. Thus, the topic-word counts may be biased towards
- * more frequent words, leads to a biased estimation that those words are "important" for that topic. Set this to true if you want to discount that bias. 
  * - inMem: If true, load entire corpus into an in-memory iterator. Otherwise, corpus stays on disk.
  * - miniBatchSize: A whole batch means a Gibbs sampling for the entire corpus. Since loading entire corpus into memory may not be feasible, miniBatchSize
  * controls how many documents to be loaded into memory. Bigger values require more memory consumption. Small values may have an impact on paralle speed up.
@@ -28,7 +24,6 @@ case class LDAConfig(
   numTopics: Int, 
   vocSize: Int, 
   iterations: Int, 
-  discount: Boolean,
   inMem: Boolean,
   miniBatchSize: Int,
   eta: Float,
@@ -43,7 +38,7 @@ case class LDAConfig(
 object LDAConfig {
   
   val usage = """
-    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-disc discountWordFreq] [-verbose verbose] 
+    Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-verbose verbose] 
     [-inMem inMemoryCorpus] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
     -in trainFile -betaFile betaFilePath 
     """
@@ -57,7 +52,6 @@ object LDAConfig {
       case "-t" :: value :: tail => consume(map ++ Map("numTopics" -> value), tail)
       case "-voc" :: value :: tail => consume(map ++ Map("vocSize" -> value), tail)
       case "-iter" :: value :: tail => consume(map ++ Map("iterations" -> value), tail)
-      case "-disc" :: value :: tail => consume(map ++ Map("discount" -> value), tail)
       case "-verbose" :: value :: tail => consume(map ++ Map("verbose" -> value), tail)
       case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
       case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
@@ -97,7 +91,6 @@ object LDAConfig {
       numTopics = map("numTopics").toInt,
       vocSize = map("vocSize").toInt,
       iterations = map("iterations").toInt,
-      discount = map.get("discount").getOrElse("false").toBoolean,
       miniBatchSize = map("miniBatchSize").toInt,
       burnIn = map.get("burnIn").getOrElse("50").toInt,
       eta = map.get("eta").getOrElse("0.1").toFloat,
