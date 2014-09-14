@@ -68,7 +68,36 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
     val s = topic.sum
     val topic_n = topic.map{ t => t/s}
     topic_n.zipWithIndex.sortBy(-1f*_._1).take(topK)
-  } 
+  }
+  
+  def EM_inference(txt: String, topK: Int, maxIter: Int = 50): Seq[(Float, Int)] = {
+    
+    def hasConverged(a: Array[Float], b: Array[Float]) = {
+      (a zip b).map{ case (x, y) => abs(x - y)}.max < 1e-2
+    }
+    
+    val tokens = txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty).flatMap{ w => word2id.map.get(w)}
+    val prior = Array.fill(T)(1.0f/T)
+    val posterior = new Array[Float](T)
+    val rangeT = 0 until T
+    var converged = false
+    var n = 0
+    while(!converged && n < maxIter){
+      rangeT.foreach{ t => posterior(t) = 0f}
+      tokens.foreach{ id =>
+        val z = rangeT.map{ t => prior(t) * beta.get(t, id) }
+        val s = z.sum
+        rangeT.foreach{ t => posterior(t) += z(t)/s}
+      }
+      val s = posterior.sum
+      rangeT.foreach{t => posterior(t) /= s}
+      converged = hasConverged(prior, posterior)
+      rangeT.foreach{t => prior(t) = posterior(t)}
+      n += 1
+    }
+    println(s"iterated ${n} steps")
+    posterior.zipWithIndex.sortBy(-1f*_._1).take(topK)
+  }
 }
 
 object ModelReader {
