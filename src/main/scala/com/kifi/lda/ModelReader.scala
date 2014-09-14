@@ -7,7 +7,7 @@ import scala.math._
 import scala.io.Source
 
 // some utility functions to examine the model
-class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
+class ModelReader(beta: Beta, word2id: Word2Id) {
   val id2word = word2id.map.map{ case (w, id) => (id, w)}
   val voc = beta.vocSize
   val T = beta.numTopics
@@ -35,34 +35,16 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
     }
   }
   
-  def showTopicWithIdfDiscount(topic: Int, topK: Int, prefetch: Int = 1000) = {
-    showTopics(topic, prefetch).map{ case (w, x) => (w, x/(exp(idf.map(w))))}.sortBy(-1f*_._2).take(topK)
+  def getAllTopics(topK: Int = 100): String = {
+    (0 until T).map{ i => val t = showTopics(i, topK).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
   }
   
-  def getAllTopics(): String = {
-    (0 until T).map{ i => val t = showTopicWithIdfDiscount(i, 100).map{_._1}; i + " " + t.mkString(", ")}.mkString("\n\n")
-  }
-  
-  // (num_words_labeled_as_topic, topic). This is helpful in identifying big 'trivial' topics
-  def topicSize(): Array[(Int, Int)] = {
-    val count = new Array[Int](T)
-    wordvecs.foreach{ case (_, v) => val idx = v.zipWithIndex.sortBy(-1f*_._1).head._2; count(idx) = count(idx) + 1}
-    count.zipWithIndex.sortBy(-1f * _._1)
-  } 
-  
-  def topicRelation() = {
-    val m = mutable.Map.empty[(Int, Int), Float]
-    wordvecs.keySet.foreach{ w => 
-      val Array((s1, idx1), (s2, idx2)) = showWordTopic(w, 5).get.take(2) 
-      val r = s2/s1
-      val k = if (idx1 < idx2) (idx1, idx2) else (idx2, idx1)
-      m(k) = m(k) + r 
-    }
-    m.toMap
+  private def tokenize(txt: String) = {
+    txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty)
   }
   
   def classify(txt: String, topK: Int): Seq[(Float, Int)] = {
-    val tokens = txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty)
+    val tokens = tokenize(txt)
     val topic = new Array[Float](T)
     tokens.flatMap{ w => wordvecs.get(w)}.foreach{ arr => (0 until T).foreach{ i => topic(i) = topic(i) + arr(i)}}
     val s = topic.sum
@@ -76,7 +58,7 @@ class ModelReader(beta: Beta, word2id: Word2Id, idf: Idf) {
       (a zip b).map{ case (x, y) => abs(x - y)}.max < 1e-2
     }
     
-    val tokens = txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty).flatMap{ w => word2id.map.get(w)}
+    val tokens = tokenize(txt).flatMap{ w => word2id.map.get(w)}
     val prior = Array.fill(T)(1.0f/T)
     val posterior = new Array[Float](T)
     val rangeT = 0 until T
