@@ -5,16 +5,14 @@ import java.io._
 import scala.math._
 import net.liftweb.json._
 import net.liftweb.json.Serialization.write
-import scala.Array.canBuildFrom
-import scala.Option.option2Iterable
-
+import scala.collection.mutable
 
 case class Word2Id(map: Map[String, Int])
 case class WordCount(numDocs: Int, wordCounts: Map[String, Int])
 case class Idf(map: Map[String, Float])
 
 class CorpusUtil {
-  def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float = 3f, maxIdf: Float = 15f): Unit = {
+  def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float, maxIdf: Float): Unit = {
     val wc = WordCounts.count(infile)
     val idf = WordCounts.idf(wc)
     val word2id = WordCounts.getWord2Id(idf, minIdf, maxIdf)
@@ -27,7 +25,7 @@ class CorpusUtil {
     word2idSave.close()
     
     val idfSave = new BufferedWriter(new FileWriter(new File(idfFile)))
-    val idfJstr = write(idf.map)
+    val idfJstr = write(word2id.map.keysIterator.map{ w => (w, idf.map(w)) }.toMap)
     idfSave.write(idfJstr)
     idfSave.close()
   }
@@ -35,7 +33,7 @@ class CorpusUtil {
 
 object WordCounts {
   def count(inName: String): WordCount = {
-    val wordCnt = scala.collection.mutable.Map[String, Int]()
+    val wordCnt = mutable.Map[String, Int]()
     val lines = Source.fromFile(inName).getLines
     var cnt = 0
 
@@ -54,8 +52,9 @@ object WordCounts {
   }
   
   def idf(wc: WordCount): Idf = {
+    def log2(x: Double) = log(x)/log(2.0)
     val N = wc.numDocs
-    Idf(wc.wordCounts.map{ case (w, n) => (w, log(N/n).toFloat)})
+    Idf(wc.wordCounts.map{ case (w, n) => (w, log2(N * 1.0 / n).toFloat)})
   }
   
   def getWord2Id(idf: Idf, minIdf: Float, maxIdf: Float): Word2Id = {
