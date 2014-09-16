@@ -21,7 +21,7 @@ The parameters aboves are:
 - -in: path to the training file (training file format is explained below)
 - -betaFile: the file name to store the `beta` parameter. `beta` is the 'topic-word' distribution. 
 
-For a comprehensive argument lists, please see documentations is source code, or type `java -jar LDA.jar` for usage. 
+For a comprehensive arguments list, please see documentations in the source code, or type `java -jar LDA.jar` for usage. 
 
 # training file format
 For simplicity and efficiency reasons, we assuem the input file has the following format:
