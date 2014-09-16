@@ -9,8 +9,7 @@ Assuming you are at project's root directory. Start `sbt` console and enter `ass
 # Use the Jar
 You can run the jar with minimal required arguments like this:
 ```
-java -jar LDA.jar -nw 32 -t 100 -voc 123456 -iter 50 
--b 10000 -in trainFile.txt -betaFile betaFile.bin
+java -jar LDA.jar -nw 32 -t 100 -voc 123456 -iter 50 -b 10000 -in trainFile.txt -betaFile betaFile.bin
 ```
 
 The parameters aboves are:
