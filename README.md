@@ -73,10 +73,10 @@ java -jar LDA.jar -nw 10 -t 2 -voc 4 -iter 50 -b 3 -in trivial.txt -betaFile tri
 ```
 At the end of training, you would see some console outputs like this
 ```
-INFO: sampling dirichlet with 12.1 12.1 0.1 0.1
-INFO: sampled beta for topic 0: 0.45371073 0.5395452 2.3765434E-4 0.006506452
-INFO: sampling dirichlet with 0.1 0.1 12.1 12.1
-INFO: sampled beta for topic 1: 0.0011156916 1.17734814E-7 0.46746284 0.53142136
+DEBUG: sampling dirichlet with 12.1 12.1 0.1 0.1
+DEBUG: sampled beta for topic 0: 0.45371073 0.5395452 2.3765434E-4 0.006506452
+DEBUG: sampling dirichlet with 0.1 0.1 12.1 12.1
+DEBUG: sampled beta for topic 1: 0.0011156916 1.17734814E-7 0.46746284 0.53142136
 ```
 
 That is, the final model consists of two topic-word distributions:
