@@ -13,8 +13,8 @@ object LoggerLevel {
 class Logger() {
   private var _level: LoggerLevel = LoggerLevel.INFO
   def setLevel(level: LoggerLevel): Unit = { _level = level }
-  def info(msg: String): Unit = if (_level >= LoggerLevel.INFO) println(msg)
-  def debug(msg: String): Unit = if (_level >= LoggerLevel.DEBUG) println(msg) 
+  def info(msg: String): Unit = if (_level >= LoggerLevel.INFO) println("INFO: " + msg)
+  def debug(msg: String): Unit = if (_level >= LoggerLevel.DEBUG) println("DEBUG: " + msg) 
 }
 
 trait Logging {
