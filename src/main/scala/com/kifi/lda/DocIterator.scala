@@ -29,15 +29,15 @@ class OnDiskDocIterator(fileName: String) extends DocIterator {
   def getPosition(): Int = p
 }
 
-class InMemoryDocIterator(fileName: String) extends DocIterator {
+class InMemoryDocIterator(fileName: String) extends DocIterator with Logging{
   private val lines = {
-    println("init in-memory doc iterator...")
+    log.info("init in-memory doc iterator...")
     val lines = ListBuffer.empty[Array[Int]]
     var lineIter = Source.fromFile(fileName).getLines
     while(lineIter.hasNext){
       lines += lineIter.next.split(" ").map{_.toInt}
     }
-    println("in-memory doc iterator initialized")
+    log.info("in-memory doc iterator initialized")
     lines
   }
   

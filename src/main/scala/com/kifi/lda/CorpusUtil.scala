@@ -12,6 +12,10 @@ case class WordCount(numDocs: Int, wordCounts: Map[String, Int])
 case class Idf(map: Map[String, Float])
 
 class CorpusUtil {
+  /**
+   * inFile: txt file, each line is a document
+   * outCorpus: txt file, each line is a document. Words are replaced by their ids. 
+   */
   def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float, maxIdf: Float): Unit = {
     val wc = WordCounts.count(infile)
     val idf = WordCounts.idf(wc)
