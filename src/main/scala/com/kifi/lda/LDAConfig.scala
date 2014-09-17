@@ -32,7 +32,7 @@ case class LDAConfig(
   skip: Int,
   trainFile: String,
   saveBetaPath: String,
-  loglevel: Level
+  loglevel: LoggerLevel
 )
 
 object LDAConfig {
@@ -84,7 +84,7 @@ object LDAConfig {
       exit(1)
     }
     
-    val logLevel = if (map.get("verbose").getOrElse("false").toBoolean) Level.INFO else Level.OFF
+    val logLevel = if (map.get("verbose").getOrElse("false").toBoolean) LoggerLevel.DEBUG else LoggerLevel.INFO
     
     val conf = LDAConfig(
       nworker = map("nworker").toInt,  

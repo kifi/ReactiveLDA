@@ -47,31 +47,31 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
   }
       
   private def updateBeta(): Unit = {
-    println(self.path.name + ": updating beta")
+    log.info(self.path.name + ": updating beta")
     
     if (updateWordCount == true){
-      log.info(s"word count finished: ${wordCounts.take(10).mkString(", ")}")
+      log.debug(s"word count finished: ${wordCounts.take(10).mkString(", ")}")
       updateWordCount = false
     }
     
     (0 until config.numTopics).foreach { t =>
       val counts = wordTopicCounts.getRow(t).map{_ + eta}
-      log.info(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
+      log.debug(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
       val b = dirSampler.sample(counts)
-      log.info(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
+      log.debug(s"sampled beta for topic $t: ${b.take(10).mkString(" ")}")
       beta.setRow(t, b)
     }
     
     betaUpdatedTimes += 1
     if (betaUpdatedTimes >= burnIn && ((betaUpdatedTimes - burnIn) % skip == 0)){
-      log.info("updating burned-in beta")
+      log.debug("updating burned-in beta")
       numBetaSamples += 1
       var i = 0
       val n = burnedBeta.value.size
       while (i < n) { burnedBeta.value(i) += beta.value(i); i += 1} 
     }
 
-    println(self.path.name + ": beta updated")
+    log.info(self.path.name + ": beta updated")
   }
   
   private def saveModel(): Unit = {
