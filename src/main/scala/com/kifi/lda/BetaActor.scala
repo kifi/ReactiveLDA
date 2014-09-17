@@ -21,8 +21,6 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
   var betaUpdatedTimes = 0
   var numBetaSamples = 0
   val eta = config.eta
-  val wordCounts = new Array[Int](config.vocSize)
-  var updateWordCount = true		// will be false once we finish one round
   val tracker = BatchProgressTracker(config.iterations)
   val rng = new Well19937c()
   private val dirSampler = new FastDirichletSampler(rng)
@@ -49,11 +47,6 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
   private def updateBeta(): Unit = {
     log.info(self.path.name + ": updating beta")
     
-    if (updateWordCount == true){
-      log.debug(s"word count finished: ${wordCounts.take(10).mkString(", ")}")
-      updateWordCount = false
-    }
-    
     (0 until config.numTopics).foreach { t =>
       val counts = wordTopicCounts.getRow(t).map{_ + eta}
       log.debug(s"sampling dirichlet with ${counts.take(10).mkString(" ")}")
@@ -62,16 +55,20 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
       beta.setRow(t, b)
     }
     
+    log.info(self.path.name + ": beta updated")
+    
+    updateBurnInBeta()
+  }
+  
+  private def updateBurnInBeta(): Unit = {
     betaUpdatedTimes += 1
     if (betaUpdatedTimes >= burnIn && ((betaUpdatedTimes - burnIn) % skip == 0)){
-      log.debug("updating burned-in beta")
+      log.debug("updating burn-in beta")
       numBetaSamples += 1
       var i = 0
       val n = burnedBeta.value.size
       while (i < n) { burnedBeta.value(i) += beta.value(i); i += 1} 
     }
-
-    log.info(self.path.name + ": beta updated")
   }
   
   private def saveModel(): Unit = {
@@ -109,10 +106,7 @@ class BetaActor(batchReader: ActorRef, config: LDAConfig) extends Actor with Log
   }
 
   private def updateWordTopicCounts(result: SamplingResult){
-    result.wordTopicAssign.value.foreach{ case (wordId, topicId) =>
-      wordTopicCounts.incre(topicId, wordId)
-      if (updateWordCount) wordCounts(wordId) = wordCounts(wordId) + 1
-    }
+    result.wordTopicAssign.value.foreach{ case (wordId, topicId) => wordTopicCounts.incre(topicId, wordId) }
   }
   
 }
