@@ -1,6 +1,6 @@
 package com.kifi.lda
 
-import java.util.logging.Level
+import java.io.File
 
 /**
  * Configs:
@@ -101,7 +101,13 @@ object LDAConfig {
       inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean,
       loglevel = logLevel
       )
-    
+      
+    val f = new File(conf.trainFile)
+    if (!f.exists()){
+      println(s"training file ${conf.trainFile} does not exist!")
+      exit(1)
+    }
+      
     if (conf.burnIn > conf.iterations){
       println(s"invalid burnIn size: burnIn size should be less or equal to total number of iterations")
       exit(1)
