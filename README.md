@@ -37,9 +37,9 @@ There are 3 types of actors:
 ## Performance
 ReactiveLDA has the following features:
 - Highly scalable Map-Reduce like job distribution. It would be interesting to extend the work by using remote Akka actors.
-- Memory friendly: no need to hold the entire corpus in memory. The major part of memory footprint is from model variables: topic-word distributions and document-topic distributions. 
+- Memory friendly: no need to hold the entire corpus in memory. The major part of memory footprint is from model variables: topic-word distributions and document-topic distributions. We also provide an in-memory option, which can save I/O when the corpus can fit into memory. 
 - Good speedup: empirical results suggest that ReactiveLDA achieves near-perfect parallel speedup (we have only performed tests up to 32 CPU cores).
-- Good speed: we have done some experiments with English wikipedia corpus (3M documents, 100K vocabulary size, after filtering out redirected articles and low frequencey words). We train a topic model with 512 dimensions on an Amazon instance with 32 virtual CPUs, one iteration of Gibbs sampling takes about 10 minutes. A total number of 50 iterations usually gives reasonably good model. That is less than half a day (with a strong machine)! 
+- Good speed: we have done some experiments with English wikipedia corpus (3M documents, 100K vocabulary size, 1.5 billion tokens, after filtering out redirected articles and low frequencey words). We train a topic model with 512 dimensions on an Amazon instance with 32 virtual CPUs, one iteration of Gibbs sampling takes about 10 minutes. A total number of 50 iterations usually gives reasonably good model. That is less than half a day (with a strong machine)! 
 
  
 # How to Use the Library
