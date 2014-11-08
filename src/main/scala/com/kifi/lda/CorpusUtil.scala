@@ -38,8 +38,8 @@ class CorpusUtil {
   // can be used to compute Pointwise Mutual Information later
   def genFreqCounts(trainingCorpus: String): FreqCounts = {
     val iter = new OnDiskDocIterator(trainingCorpus)
-    val wordCnt = mutable.Map[Int, Float]().withDefaultValue(0f)
-    val jointCnt = mutable.Map[(Int, Int), Float]().withDefaultValue(0f)
+    val wordCnt = mutable.Map[Int, Float]().withDefaultValue(1e-10f)
+    val jointCnt = mutable.Map[(Int, Int), Float]().withDefaultValue(1e-10f)
     var n = 0
     
     while(iter.hasNext){
