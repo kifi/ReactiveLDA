@@ -21,12 +21,17 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
     }
     wordvecs.toMap
   }
+  var freqCntsForPMI: Option[FreqCounts] = None
   
   def showTopics(topic: Int, topK: Int) = {
+    getTopKWordScoreAndIds(topic, topK).map{ case (score, id) => (id2word(id), score) }
+  }
+  
+  private def getTopKWordScoreAndIds(topic: Int, topK: Int): Seq[(Float, Int)] = {
     val t = topic; 
     val v = (0 until voc).map{w => beta.get(t, w)}; 
     val s = v.sum; val v_n = v.map{_/s}; 
-    v_n.zipWithIndex.sortBy(-1f*_._1).take(topK).map{ x => (id2word(x._2), x._1) }
+    v_n.zipWithIndex.sortBy(-1f*_._1).take(topK)
   }
   
   def showWordTopic(word: String, topK: Int) = {
@@ -41,6 +46,36 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
   
   private def tokenize(txt: String) = {
     txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty)
+  }
+  
+  def setFreqCntsForPMI(corpus: String): Unit = {
+    val util = new CorpusUtil()
+    val freq = util.genFreqCounts(corpus)
+    freqCntsForPMI = Some(freq)
+  }
+  
+  def evaluateModelPMI(topKwords: Int = 100): Array[Double] = {
+    Array.tabulate(T){ t =>
+      val ids = getTopKWordScoreAndIds(t, topKwords).map{_._2}
+      var s = 0.0
+      for(i <- ids){
+        for(j <-ids){
+          if ( i < j ) s += computePMI(i, j)
+        }
+      }
+      s 
+    }
+  } 
+  
+  def computePMI(word1: Int, word2: Int): Double = {
+    assume(word1 != word2, "PMI should apply to different words")
+    if (freqCntsForPMI.isEmpty){
+      throw new Exception("call setFreqCntsForPMI first")
+    }
+    val freq = freqCntsForPMI.get
+    val y = freq.wordProb(word1) * freq.wordProb(word2)
+    val x = if (word1 < word2) freq.jointProb.getOrElse((word1, word2), 1e-10.toFloat) else freq.jointProb.getOrElse((word2, word1), 1e-10.toFloat) 
+    log(x/y.toDouble)
   }
   
   def classify(txt: String, topK: Int): Seq[(Float, Int)] = {

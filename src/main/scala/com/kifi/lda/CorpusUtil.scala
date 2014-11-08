@@ -10,6 +10,7 @@ import scala.collection.mutable
 case class Word2Id(map: Map[String, Int])
 case class WordCount(numDocs: Int, wordCounts: Map[String, Int])
 case class Idf(map: Map[String, Float])
+case class FreqCounts(wordProb: Map[Int, Float], jointProb: Map[(Int, Int), Float])
 
 class CorpusUtil {
   /**
@@ -32,6 +33,29 @@ class CorpusUtil {
     val idfJstr = write(word2id.map.keysIterator.map{ w => (w, idf.map(w)) }.toMap)
     idfSave.write(idfJstr)
     idfSave.close()
+  }
+  
+  // can be used to compute Pointwise Mutual Information later
+  def genFreqCounts(trainingCorpus: String): FreqCounts = {
+    val iter = new OnDiskDocIterator(trainingCorpus)
+    val wordCnt = mutable.Map[Int, Float]().withDefaultValue(0f)
+    val jointCnt = mutable.Map[(Int, Int), Float]().withDefaultValue(0f)
+    var n = 0
+    
+    while(iter.hasNext){
+      val words = iter.next.content.toSet
+      words.foreach( w => wordCnt(w) += 1f)
+      for(i <- words){
+        for(j <- words){
+          if (i < j) jointCnt((i, j)) += 1f
+        }
+      }
+      n += 1
+      if (n % 1000 == 0) printf(s"\r${n} files processed")
+    }
+    wordCnt.keysIterator.foreach{ k => wordCnt(k) /= n}
+    jointCnt.keysIterator.foreach{ k => jointCnt(k) /= n}
+    FreqCounts(wordCnt.toMap, jointCnt.toMap)
   }
 }
 
