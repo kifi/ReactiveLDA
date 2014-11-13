@@ -104,7 +104,7 @@ topic 1: 0.0011156916 1.17734814E-7 0.46746284 0.53142136
 ```
 So, topic 0 is defined by word 0 and word 1, and topic 1 is defined by word 2 and 3. 
 
-Of course, this is an overly simplified example, and we know the correct number of topics a priori. In practice, one have to try a few different topic sizes and evaluate the quality of the model (e.g. by computing perplexity, or examine if similar words have similar topic distributions, etc). 
+Of course, this is an overly simplified example, and we know the correct number of topics a priori. In practice, one has to try a few different topic sizes and evaluate the quality of the model (e.g. by computing perplexity, or examine if similar words have similar topic distributions, etc). 
 
 ## Use the Trained Model
 We provide a simple util class `ModelReader` to read the trained `beta` file. With that util class you can do the following:
