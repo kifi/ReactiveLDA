@@ -36,12 +36,19 @@ class DocSamplingActor(numTopics: Int, alph: Float) extends Actor {
   }
 
   private def sampling(doc: Doc, theta: Theta, beta: Beta): SamplingResult = {
-
+    var prev = -1
+    var s = 0f
+    var i = 0
+    
     val zs = doc.content.map{ w =>
-      var i = 0
-      var s = 0f
-      while (i < numTopics){ multinomial(i) = theta.value(i) * beta.get(i, w); s += multinomial(i); i += 1}
-      multiSampler.sample(multinomial, s)
+      if (w != prev){
+        // If in-mem corpus is used and termsSorted flag is set to true, we could have performance benefits here. (empirically, 2x ~ 4x)
+        i = 0
+    	s = 0f
+        while (i < numTopics){ multinomial(i) = theta.value(i) * beta.get(i, w); s += multinomial(i); i += 1}  
+      }
+      prev = w
+      multiSampler.sample(multinomial, s)		// reuse these two parameters whenever possible
     }
 
     SamplingResult(doc.index, Theta(sampleTheta(zs)), WordTopicAssigns((doc.content zip zs)))

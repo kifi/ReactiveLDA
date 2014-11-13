@@ -29,13 +29,21 @@ class OnDiskDocIterator(fileName: String) extends DocIterator {
   def getPosition(): Int = p
 }
 
-class InMemoryDocIterator(fileName: String) extends DocIterator with Logging{
+class InMemoryDocIterator(fileName: String, sortTerms: Boolean) extends DocIterator with Logging{
+  implicit val intOrd = Ordering[Int]
   private val lines = {
     log.info("init in-memory doc iterator...")
+    if (sortTerms) log.info("sortTerms flag is set to true. Loading corpus will take a bit longer ...")
+    
     val lines = ListBuffer.empty[Array[Int]]
     var lineIter = Source.fromFile(fileName).getLines
     while(lineIter.hasNext){
-      lines += lineIter.next.split(" ").map{_.toInt}
+      val terms = lineIter.next.split(" ").map{_.toInt}
+      if (sortTerms){
+        lines += terms.sorted
+      } else {
+        lines += terms
+      }
     }
     log.info("in-memory doc iterator initialized")
     lines
