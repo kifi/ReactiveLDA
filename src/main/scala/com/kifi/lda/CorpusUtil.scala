@@ -35,21 +35,47 @@ class CorpusUtil {
     idfSave.close()
   }
   
-  // can be used to compute Pointwise Mutual Information later
-  def genFreqCounts(trainingCorpus: String): FreqCounts = {
+  // can be used to compute Pointwise Mutual Information later. Since we are only interested
+  // in top words in topics, we specify wordPairs to save memory.
+  def genFreqCounts(trainingCorpus: String, wordPairs: Set[(Int, Int)]): FreqCounts = {
+    val words = wordPairs.flatMap{ pair => List(pair._1, pair._2)}.toSet
+    val sortedPairs = wordPairs.toArray.sortBy(_._1)
+    val srcPos = mutable.Map[Int, Int]()
+    var i = 0 
+    val N = sortedPairs.length
+    var prevSrc = -1
+    while (i < N){
+      val src = sortedPairs(i)._1
+      if (src != prevSrc){
+        srcPos(src) = i
+        prevSrc = src 
+      }
+      i += 1
+    }
+    
     val iter = new OnDiskDocIterator(trainingCorpus)
     val wordCnt = mutable.Map[Int, Float]().withDefaultValue(1e-10f)
     val jointCnt = mutable.Map[(Int, Int), Float]().withDefaultValue(1e-10f)
     var n = 0
     
     while(iter.hasNext){
-      val words = iter.next.content.toSet
-      words.foreach( w => wordCnt(w) += 1f)
-      for(i <- words){
-        for(j <- words){
-          if (i < j) jointCnt((i, j)) += 1f
+      val wordsInDoc = iter.next.content.toSet
+      val filtered = words & wordsInDoc
+      filtered.foreach { w =>
+        wordCnt(w) += 1f
+        if (srcPos.keySet.contains(w)) {
+          var p = srcPos(w)
+          var src = sortedPairs(p)._1
+          while (src == w && p < N) {
+            val dest = sortedPairs(p)._2
+            if (filtered.contains(dest)) jointCnt((src, dest)) += 1f
+            p += 1
+            if (p < N) src = sortedPairs(p)._1
+          }
+
         }
       }
+      
       n += 1
       if (n % 1000 == 0) printf(s"\r${n} files processed")
     }

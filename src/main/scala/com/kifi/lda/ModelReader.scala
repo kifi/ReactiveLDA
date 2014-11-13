@@ -48,13 +48,24 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
     txt.toLowerCase.split("[\\s,.:;\"\'()]").filter(!_.isEmpty)
   }
   
-  def setFreqCntsForPMI(corpus: String): Unit = {
+  private def setFreqCntsForPMI(corpus: String, topKWords: Int): Unit = {
     val util = new CorpusUtil()
-    val freq = util.genFreqCounts(corpus)
+    val pairs = Array.tabulate(T){ t =>
+      val ids = getTopKWordScoreAndIds(t, topKWords).map{_._2}
+      var s = 0.0
+      for{
+        i <- ids
+        j <- ids if i < j
+      } yield (i, j)
+    }.flatten.toSet
+    println(s"scanning corpus for ${pairs.size} pairs")
+    val freq = util.genFreqCounts(corpus, pairs)
     freqCntsForPMI = Some(freq)
   }
   
-  def evaluateModelPMI(topKwords: Int = 100): Array[Double] = {
+  
+  def evaluateModelPMI(corpus: String, topKwords: Int = 50): Array[Double] = {
+    setFreqCntsForPMI(corpus, topKwords)
     Array.tabulate(T){ t =>
       val ids = getTopKWordScoreAndIds(t, topKwords).map{_._2}
       var s = 0.0
@@ -67,11 +78,8 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
     }
   } 
   
-  def computePMI(word1: Int, word2: Int): Double = {
+  private def computePMI(word1: Int, word2: Int): Double = {
     assume(word1 != word2, "PMI should apply to different words")
-    if (freqCntsForPMI.isEmpty){
-      throw new Exception("call setFreqCntsForPMI first")
-    }
     val freq = freqCntsForPMI.get
     val y = freq.wordProb(word1) * freq.wordProb(word2)
     val x = if (word1 < word2) freq.jointProb.getOrElse((word1, word2), 1e-10.toFloat) else freq.jointProb.getOrElse((word2, word1), 1e-10.toFloat) 
