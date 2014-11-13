@@ -38,6 +38,8 @@ case class BatchProgressTracker(val totalIters: Int) {
   private var currMiniBatchSize: Int = 0
   private var miniBatchCounter: Int = 0
   private var _isLastMiniBatch: Boolean = false
+  private var _timeStamp = System.currentTimeMillis
+  private val oneMinute = 1000 * 60f
   
   def isLastMiniBatch = _isLastMiniBatch
   
@@ -56,6 +58,9 @@ case class BatchProgressTracker(val totalIters: Int) {
 
   def increBatchCounter() = {
     println(s"\nbatch ${batchCounter + 1} finished!!!")
+    val now = System.currentTimeMillis
+    println(s"time elapsed for this batch: ${(now - _timeStamp) / oneMinute} minutes")
+    _timeStamp = now
     batchCounter += 1
   }
   
