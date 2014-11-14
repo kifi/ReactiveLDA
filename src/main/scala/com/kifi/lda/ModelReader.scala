@@ -66,6 +66,7 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
   
   def evaluateModelPMI(corpus: String, topKwords: Int = 50): Array[Double] = {
     setFreqCntsForPMI(corpus, topKwords)
+    val normalizer = topKwords * (topKwords - 1) / 2.0
     Array.tabulate(T){ t =>
       val ids = getTopKWordScoreAndIds(t, topKwords).map{_._2}
       var s = 0.0
@@ -74,7 +75,7 @@ class ModelReader(beta: Beta, word2id: Word2Id) {
           if ( i < j ) s += computePMI(i, j)
         }
       }
-      s 
+      s / normalizer
     }
   } 
   
