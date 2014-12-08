@@ -37,11 +37,9 @@ case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 
 object Beta {
   def toBytes(beta: Beta): Array[Byte] = {
-    val numBytes = 4 * 2 + 4 * beta.value.size
-    var i = 0
-    var N = beta.value.size
+    val bufSize = beta.value.size
 
-    val bs = new ByteArrayOutputStream(numBytes)
+    val bs = new ByteArrayOutputStream(bufSize)
     val os = new DataOutputStream(bs)
     os.writeInt(beta.numTopics)
     os.writeInt(beta.vocSize)
