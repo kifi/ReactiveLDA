@@ -1,6 +1,7 @@
 package com.kifi.lda
 
 import java.io._
+import java.nio.ByteBuffer
 
 /**
  * Variables in the graphical model.
@@ -37,9 +38,9 @@ case class WordTopicAssigns(value: Array[(Int, Int)])  // (wordId, topicId)
 
 object Beta {
   def toBytes(beta: Beta): Array[Byte] = {
-    val bufSize = beta.value.size
+    val numBytes = 4 * 2 + 4 * beta.value.size
 
-    val bs = new ByteArrayOutputStream(bufSize)
+    val bs = new ByteArrayOutputStream(numBytes)
     val os = new DataOutputStream(bs)
     os.writeInt(beta.numTopics)
     os.writeInt(beta.vocSize)
@@ -51,9 +52,34 @@ object Beta {
   }
 
   def toFile(beta: Beta, path: String) = {
+    if (4 * 2.0 + 4.0 * beta.value.size > Int.MaxValue){
+      robustToFile(beta, path)  
+    } else {
+      val os = new FileOutputStream(path)
+      val bytes = toBytes(beta)
+      os.write(bytes)
+      os.close()
+    }
+  }
+  
+  private def robustToFile(beta: Beta, path: String) = {
     val os = new FileOutputStream(path)
-    val bytes = toBytes(beta)
-    os.write(bytes)
+    val bufsize = beta.vocSize * 4
+    val buf = new Array[Byte](bufsize)
+    val bbuf = ByteBuffer.wrap(buf, 0, bufsize)
+    bbuf.putInt(beta.numTopics)
+    bbuf.putInt(beta.vocSize)
+    os.write(buf, 0, 8)
+    bbuf.clear()
+    for( i <- 0 until beta.numTopics){
+      var v = 0
+      while (v < beta.vocSize){
+        bbuf.putFloat(beta.get(i, v))
+        v += 1
+      }
+      os.write(buf, 0, bufsize)
+      bbuf.clear()
+    }
     os.close()
   }
 
