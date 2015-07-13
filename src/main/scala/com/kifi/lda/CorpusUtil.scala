@@ -17,10 +17,11 @@ class CorpusUtil {
    * inFile: txt file, each line is a document
    * outCorpus: txt file, each line is a document. Words are replaced by their ids. 
    */
-  def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float, maxIdf: Float): Unit = {
+  def process(infile: String, outCorpus: String, word2idFile: String, idfFile: String, minIdf: Float, numOfWords: Int): Unit = {
     val wc = WordCounts.count(infile)
     val idf = WordCounts.idf(wc)
-    val word2id = WordCounts.getWord2Id(idf, minIdf, maxIdf)
+    val word2id = WordCounts.getWord2Id(idf, minIdf, numOfWords)
+    println(s"final vocabulary size: ${word2id.map.size}")
     val word2idFilter = new Word2IdFilter(word2id.map)
     word2idFilter.transfer(infile, outCorpus)
     implicit val formats = DefaultFormats
@@ -111,9 +112,9 @@ object WordCounts {
     Idf(wc.wordCounts.map{ case (w, n) => (w, log2(N * 1.0 / n).toFloat)})
   }
   
-  def getWord2Id(idf: Idf, minIdf: Float, maxIdf: Float): Word2Id = {
-    val filtered = idf.map.filter{ case (w, x) => x > minIdf && x < maxIdf}
-    val rv = filtered.toArray.sortBy(_._2).map{_._1}.zipWithIndex.toMap
+  def getWord2Id(idf: Idf, minIdf: Float, numOfWords: Int): Word2Id = {
+    val filtered = idf.map.filter{ case (w, x) => x > minIdf}
+    val rv = filtered.toArray.sortBy(_._2).map{_._1}.take(numOfWords).zipWithIndex.toMap
     Word2Id(rv)
   }
 }
@@ -122,7 +123,7 @@ class Word2IdFilter(word2id: Map[String, Int]){
 
   private def filter(text: String): String = {
     val tokens = text.split("[\\s]").filter(!_.isEmpty)
-    tokens.flatMap{ x => word2id.get(x)}.mkString(" ")
+    tokens.flatMap{ x => word2id.get(x)}.toArray.sorted.mkString(" ")      // tokens are sorted to speed up Gibbs Sampling (by reusing multinomial distribution) 
   }
 
   def transfer(inName: String, outName: String): Unit = {

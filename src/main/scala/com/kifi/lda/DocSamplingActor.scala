@@ -42,9 +42,8 @@ class DocSamplingActor(numTopics: Int, alph: Float) extends Actor {
     
     val zs = doc.content.map{ w =>
       if (w != prev){
-        // If in-mem corpus is used and termsSorted flag is set to true, we could have performance benefits here. (empirically, 2x ~ 4x)
         i = 0
-    	s = 0f
+      	s = 0f
         while (i < numTopics){ multinomial(i) = theta.value(i) * beta.get(i, w); s += multinomial(i); i += 1}  
       }
       prev = w
