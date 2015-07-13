@@ -9,8 +9,6 @@ import java.io.File
  * - vocSize: vocabulary size
  * - iterations: how many iterations on the corpus
  * - inMem: If true, load entire corpus into an in-memory iterator. Otherwise, corpus stays on disk.
- * - sortTerms: this only affects in-memory DocIterator. This could improve performance during document level sampling. (2x ~ 4x empirically)
- *   For OnDiskDocIterator, this flag is ignored. Because we don't want to sort documents repeatedly. (One could prepare a sorted corpus though) 
  * - miniBatchSize: A whole batch means a Gibbs sampling for the entire corpus. Since loading entire corpus into memory may not be feasible, miniBatchSize
  * controls how many documents to be loaded into memory. Bigger values require more memory consumption. Small values may have an impact on paralle speed up.
  * - eta: smooth factor for computing beta (topic-word distribution). default = 0.1
@@ -27,7 +25,6 @@ case class LDAConfig(
   vocSize: Int, 
   iterations: Int, 
   inMem: Boolean,
-  sortTerms: Boolean,
   miniBatchSize: Int,
   eta: Float,
   alpha: Float,
@@ -42,7 +39,7 @@ object LDAConfig {
   
   val usage = """
     Usage: java -jar LDA.jar -nw nworker -t numTopics -voc vocSize -iter iterations [-verbose verbose] 
-    [-inMem inMemoryCorpus -sortTerms soterTerms] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
+    [-inMem inMemoryCorpus] -b miniBatchSize [-eta eta -alpha alpha -burnIn burnIn -skip skipSize] 
     -in trainFile -betaFile betaFilePath 
     """
     
@@ -57,7 +54,6 @@ object LDAConfig {
       case "-iter" :: value :: tail => consume(map ++ Map("iterations" -> value), tail)
       case "-verbose" :: value :: tail => consume(map ++ Map("verbose" -> value), tail)
       case "-inMem":: value :: tail => consume(map ++ Map("inMemoryCorpus" -> value), tail)
-      case "-sortTerms":: value :: tail => consume(map ++ Map("sortTerms" -> value), tail)
       case "-b" :: value :: tail => consume(map ++ Map("miniBatchSize" -> value), tail)
       case "-eta" :: value :: tail => consume(map ++ Map("eta" -> value), tail)
       case "-alpha" :: value :: tail => consume(map ++ Map("alpha" -> value), tail)
@@ -96,25 +92,19 @@ object LDAConfig {
       vocSize = map("vocSize").toInt,
       iterations = map("iterations").toInt,
       miniBatchSize = map("miniBatchSize").toInt,
-      burnIn = map.get("burnIn").getOrElse("50").toInt,
+      burnIn = map.get("burnIn").getOrElse(map("iterations")).toInt,
       eta = map.get("eta").getOrElse("0.1").toFloat,
       alpha = map.get("alpha").getOrElse("0.1").toFloat,
       skip = map.get("skip").getOrElse("5").toInt,
       trainFile = map("trainFile"),
       saveBetaPath = map("betaFile"),
       inMem = map.get("inMemoryCorpus").getOrElse("false").toBoolean,
-      sortTerms = map.get("sortTerms").getOrElse("false").toBoolean,
       loglevel = logLevel
       )
       
     val f = new File(conf.trainFile)
     if (!f.exists()){
       println(s"training file ${conf.trainFile} does not exist!")
-      exit(1)
-    }
-      
-    if (conf.burnIn > conf.iterations){
-      println(s"invalid burnIn size: burnIn size should be less or equal to total number of iterations")
       exit(1)
     }
       
